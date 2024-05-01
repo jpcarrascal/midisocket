@@ -1,0 +1,84 @@
+
+html{
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+body {
+    user-select: none;
+    -webkit-user-select: none;
+    color: grey;
+    background-color: black;
+    overflow: hidden;
+    font-family: 'Montserrat', 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+    font-weight: bold;
+    display:flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+#sound-play {
+    user-select: none;
+    -webkit-user-select: none;
+    width:100%;
+    height: 100%;
+    margin: 0;
+    text-align: center;
+    font-size: 2.8em;
+    line-height:200%;
+    overflow: hidden;
+}
+
+
+@keyframes transition {
+    from {
+        background-color: white;
+    }
+    to {
+        background-color: rgb(96, 0, 180);
+    }
+}
+
+.transition {
+  animation-name: transition;
+  animation-duration: 2s;
+}
+
+#veil {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    z-index: 100;
+    top: 0;
+    left: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    display: none;
+    text-align: center;
+    font-family:'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #444;
+    color: white;
+    overflow: hidden;
+    user-select: none;
+    font-size: 2em;
+}
+
+.full-screen {
+    padding: 1em;
+}
+
+#tap-me {   
+}

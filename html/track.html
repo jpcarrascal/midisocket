@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DBASS - Distributed Biological Architectural Sound System</title>
+    <link rel="stylesheet" href="css/track.css">
+    <link rel="stylesheet" href="css/color-transitions.css">
+    <link href='https://fonts.googleapis.com/css?family=Montserrat' rel='stylesheet'>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-DL12T801J8"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-DL12T801J8');
+    </script>
+  </head>
+  <body>
+    <div id="veil" class="full-screen">
+      <div>
+        
+      </div>
+    </div>
+    <div class="full-screen" id="tap-me">
+      <div id="sound-play">Loading, please wait...</div>
+    </div>
+    <audio autoplay id="audio-player" src="" type="audio/mpeg" preload="auto" loop>
+      <p>
+        Your browser does not support HTML audio, but you can still
+        <a href="audiofile.mp3">download the music</a>.
+      </p>
+    </audio>
+    
+    <script src="scripts/NoSleep.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="scripts/track.js"></script>
+    
+
+  </body>
+</html>

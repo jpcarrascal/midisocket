@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DBASS - Distributed Biological Architectural Sound System</title>
+    <link rel="stylesheet" href="css/index.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=0">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-DL12T801J8"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-DL12T801J8');
+    </script>
+  </head>
+  <body>
+    
+    <div id="form-container">
+
+      <form id="intro" action="sequencer" method="get">
+        <div class="centered">
+          <h2>DBASS</h2>
+        </div>
+
+        <div class="centered">
+        <span id="disconnect-message"></span>
+        </div>
+
+        <label for="session">Enter a name to create a new session:</label>
+        <input type="text" class="intro-form" name="session" id="new-session-name" placeholder="[session name]" />
+        <div class="centered">
+          <button id="create-session" class="ui-button" value="Go!" type="button">Go!</button>
+        </div>
+      </form>
+      
+    </div>
+    <script src="scripts/config.js"></script>
+    <script src="scripts/include.js"></script>
+    <script>
+      var form = document.getElementById("intro");
+      var session = document.querySelector("#new-session-name");
+      var reason = findGetParameter("exitreason");
+      console.log(document.location.href);
+      session.addEventListener("keyup", function(e) {
+          this.style.backgroundColor = "white";
+      });
+      
+      if(reason && reason != "")
+          document.getElementById("disconnect-message").innerText = reason;
+
+      document.getElementById("create-session").addEventListener("click", function(e){
+          if(session.value) form.submit();
+          else {
+            session.setAttribute("placeholder","Enter a name")
+            session.style.backgroundColor="tomato";
+          } 
+      });
+
+    </script>
+  </body>
+</html>
