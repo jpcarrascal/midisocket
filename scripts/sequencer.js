@@ -11,7 +11,7 @@ var bgPlaying = false;
 // Am I a sequencer?
 var isSeq = location.pathname.includes("sequencer");
 var initials = "";
-var session = findGetParameter("session") || DEFAULT_ROOM;
+var session = findGetParameter("session") || DEFAULT_SESSION;
 
 var socket = io("", {query:{code: code, session:session}});
 var mySocketID;
