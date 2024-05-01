@@ -20,9 +20,10 @@ socket.on("connect", () => {
   mySocketID = socket.id;
 });
 // TODO: take over existing tracks:
+
 /*
 socket.on('joined tracks', function(msg) {
-  console.log("Joines tracks: ");
+  console.log("Joined tracks: ");
   console.log(msg);
 });
 */
