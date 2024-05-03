@@ -52,17 +52,15 @@ button {
 }
 
 #track-list {
-    font-family: 'Courier New', Courier, monospace;
-    width: 100%;
-    height: 100%;
     text-align: left;
     color: black;
     padding-top: 1vw;
+    border: 1px solid red;
 }
 
 .track-item {
     padding-left: 5px;
-    border-left: 15px solid transparent;
+    border: 1px solid red;
 }
 
 .track-ready {

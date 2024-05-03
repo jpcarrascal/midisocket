@@ -77,8 +77,8 @@ io.on('connection', (socket) => {
     if(socket.handshake.headers.referer.includes("sequencer"))
         seq = true;
     var session = socket.handshake.query.session;
-    //var initials = socket.handshake.query.initials;
-    var initials = socket.handshake.headers['user-agent'];
+    var initials = socket.handshake.query.initials;
+    //var initials = socket.handshake.headers['user-agent'];
     //var allocationMethod = socket.handshake.query.method || "random";
     var allocationMethod = true;
     socket.join(session);
@@ -139,6 +139,7 @@ io.on('connection', (socket) => {
             io.to(socket.id).emit('exit session', {reason: "Session has not started..."});
         }
     }
+    
     socket.on('step update', (msg) => { // Send step values
         io.to(session).emit('step update', msg);
         sessions.participantStartCounting(session, socket.id);
@@ -153,18 +154,6 @@ io.on('connection', (socket) => {
         io.to(msg.socketid).emit('update track', msg);
     });
 
-    socket.on('play', (msg) => {
-        socket.broadcast.to(session).emit('play', msg);
-        sessions.play(session);
-        logger.info("#" + session + " Playing...");
-    });
-
-    socket.on('stop', (msg) => {
-        socket.broadcast.to(session).emit('stop', msg);
-        sessions.stop(session);
-        logger.info("#" + session + " Stopped.");
-    });
-
     socket.on('veil-on', (msg) => {
         socket.broadcast.to(session).emit('veil-on', msg);
         logger.info("#" + session + " Veil ON.");
@@ -175,28 +164,26 @@ io.on('connection', (socket) => {
         logger.info("#" + session + " Veil OFF.");
     });
 
-    socket.on('color-change', (msg) => {
-        socket.broadcast.to(session).emit('color-change', msg);
-        logger.info("#" + session + " Color changed to " + msg.color);
-    });
-
-    socket.on('switch-sounds', (msg) => {
-        socket.broadcast.to(session).emit('switch-sounds', msg);
-        logger.info("#" + session + " Switch sounds");
-    });
-
     socket.on('ping', (msg) => {
         io.to(socket.id).emit('pong', msg);
     });
 
     socket.on('track ready', (msg) => {
         socket.broadcast.to(session).emit('track ready', msg);
-        logger.info("#" + session + " " + msg.socketID + ") ready to play");
-    }); 
-
-    socket.on('hide toggle', (msg) => {
-        socket.broadcast.to(session).emit('hide toggle track', {value: msg.value});
+        logger.info("#" + session + " (" + msg.socketID + ") ready to play");
     });
+
+    socket.on('midi message', (msg) => {
+        io.to(session).emit('midi message', msg);
+        logger.info("#" + session + " (" + msg.socketID + ") midi message (" + msg.type + ")");
+    });
+
+    /*
+    socket.onAny((event, msg) => {
+        console.log(event)
+        console.log(msg);
+    });
+    */
 
 });
 

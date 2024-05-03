@@ -40,28 +40,10 @@
       <table border="0">
         <tr>
           <td>
-            <button id="play-bg">Play Background</button>            
-          </td>
-          <td>
-            <button id="stop-bg">Stop Background</button>            
-          </td>
-
-          <td>
-            <button id="play-button">Play Mobiles</button>
-          </td>
-          <td>
-            <button id="stop-button">Stop Mobiles</button>            
-          </td>
-          <!---
-          <td>
             <button id="veil-on-button">Veil ON</button>            
           </td>
           <td>
             <button id="veil-off-button">Veil OFF</button>            
-          </td>
-          -->
-          <td>
-            <button id="switch-sounds">Switch sounds</button>            
           </td>
         </tr>
       </table>
@@ -81,8 +63,8 @@
     
     <div id="list-container">
       <div id="list-title">Connected devices:</div>
-      <ol id="track-list" class="transition-lightgrey">
-      </ol>
+      <table id="track-list" class="transition-lightgrey">
+      </table>
     </div>
 
     <audio autoplay="false" id="audio-player" src="" type="audio/mpeg" preload="auto" loop="true">

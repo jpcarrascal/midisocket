@@ -22,18 +22,38 @@
         
       </div>
     </div>
-    <div class="full-screen" id="tap-me">
-      <div id="sound-play">Loading, please wait...</div>
+
+    <div id="initials-form" class="full-screen">
+      Escribe tus iniciales (3 letras máximo):
+      <form>
+        <input type="text" id="initials" name="initials" maxlength="3" placeholder="">
+        <input type="submit" value="Enviar">
+      </form>
     </div>
-    <audio autoplay id="audio-player" src="" type="audio/mpeg" preload="auto" loop>
-      <p>
-        Your browser does not support HTML audio, but you can still
-        <a href="audiofile.mp3">download the music</a>.
-      </p>
-    </audio>
+
+    <div id="controller" class="full-screen">
+      Controls go here
+      <ul class="set">
+        <li class="key white b"  note="60"></li>
+        <li class="key black as" note="61"></li>
+        <li class="key white a"  note="62"></li>
+        <li class="key black gs" note="63"></li>
+        <li class="key white g"  note="64"></li>
+        <li class="key black fs" note="65"></li>
+        <li class="key white f"  note="66"></li>
+        <li class="key white e"  note="67"></li>
+        <li class="key black ds" note="68"></li>
+        <li class="key white d"  note="69"></li>
+        <li class="key black cs" note="70"></li>
+        <li class="key white c"  note="71"></li>
+      </ul>
+    </div>
+
     
     <script src="scripts/NoSleep.js"></script>
     <script src="/socket.io/socket.io.js"></script>
+    <script src="scripts/config.js"></script>
+    <script src="scripts/include.js"></script>
     <script src="scripts/track.js"></script>
     
 
