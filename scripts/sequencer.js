@@ -3,6 +3,26 @@ var tracks = [];
 var trackList = document.getElementById("track-list");
 var bgLoopLocation = "sounds/default/bg.mp3";
 var bgPlaying = false;
+var infoShown = false;
+
+if(!infoShown) {
+  document.getElementById("switch").innerText = "Info";
+  document.getElementById("session-info").style.display = "none";
+} else {
+  document.getElementById("switch").innerText = "✕";
+  document.getElementById("session-info").style.display = "flex";
+}
+
+document.getElementById("switch").addEventListener("click", function(event){
+  if(infoShown) {
+    this.innerText = "Info";
+    document.getElementById("session-info").style.display = "none";
+  } else {
+    this.innerText = "✕";
+    document.getElementById("session-info").style.display = "flex";
+  }
+  infoShown = !infoShown;
+});
 
 
 // Am I a sequencer?
@@ -24,7 +44,7 @@ socket.on('sequencer exists', function(msg) {
 socket.on('track joined', function(msg) {
   //{ initials: initials, track:track, socketid: socket.id }
   console.log("Track joined: " + msg.socketid);
-  tracks.push({socketID: msg.socketid, initials:msg.initials, ready: false});
+  tracks.push({socketID: msg.socketid, initials:msg.initials, ready: false, midiOut: null, midiIn: null});
   updateTracks(tracks);
 });
 
@@ -51,11 +71,13 @@ socket.on('track left', function(msg) {
   console.log("Track left: " + msg.socketid);
   console.log(tracks);
   tracks = tracks.filter(function(value, index, arr){ return value.socketID != msg.socketid;});
+  document.getElementById(msg.socketid).remove();
   console.log(tracks);
   updateTracks(tracks);
 });
 
 function updateTracks(tracks) {
+  /*
   trackList.innerHTML = tracks.map(function(value, index, arr) {
     var itemClass = "track-not-ready";
     if(value.ready) {
@@ -63,10 +85,25 @@ function updateTracks(tracks) {
     }
     return "<tr><td class='track-item " + itemClass + "' id='" + value.socketID + "'>"+value.initials+"</td><tr>";
   }).join("");
+  */
+  tracks.forEach(function(item, index, arr) {
+    var trackItem = document.getElementById(item.socketID);
+    if(!trackItem) {
+      var midiSelector = document.getElementById("select-midi-out").cloneNode(true);
+      var newRow = document.createElement("tr");
+      var newCell = document.createElement("td");
+      newRow.classList.add("track-item");
+      newRow.setAttribute("id",item.socketID);
+      newCell.innerText = item.initials;
+      newRow.appendChild(newCell);
+      newRow.appendChild(midiSelector);
+      trackList.appendChild(newRow);
+    }
+  });
+
 }
 
 initials = "SQ";
-var hideInfo = findGetParameter("hideinfo");
 document.getElementById("session-name").innerText = session;
 var info = document.getElementById("session-info");
 var urlTmp = document.location.origin;
@@ -83,48 +120,23 @@ document.getElementById("track-url").innerText = trackURL;
 document.getElementById("url-copy").innerText = trackURL;
 document.getElementById("copy").addEventListener("click", function(e) {
   copyURL("url-copy");
-  this.innerText = "COPIED!";
-  p=setTimeout( function() { document.getElementById("copy").innerText = "COPY TO CLIPBOARD" }, 2000);
+  this.innerText = "Copiado!";
+  p=setTimeout( function() { document.getElementById("copy").innerText = "Copiar enlace" }, 2000);
   console.log(p)
 });
 
-if(hideInfo) {
-  info.style.display = "none";
-} else {
-  info.style.display = "flex";
-}
-
 var veilOnButton = document.getElementById("veil-on-button");
 var veilOffButton = document.getElementById("veil-off-button");
-var switchSounds = document.getElementById("switch-sounds");
-
-
-
 
 veilOnButton.addEventListener("click",function(event){
-  this.style.backgroundColor = "lime";
+  this.style.backgroundColor = "red";
   console.log("Veil ON");
   socket.emit('veil-on', { socketID: mySocketID });
 });
 
 veilOffButton.addEventListener("click",function(event){
-  veilOnButton.style.backgroundColor = "white";
+  veilOnButton.style.backgroundColor = "#EEE";
   console.log("Veil OFF");
   socket.emit('veil-off', { socketID: mySocketID });
 });
 
-document.querySelectorAll(".color-button").forEach(element => {
-  element.addEventListener("click", function(event){
-    color = element.getAttribute("color");
-    console.log("Changing color to " + color);
-    //trackList.style.backgroundColor = color;
-    trackList.className = '';
-    trackList.classList.add("transition-"+color);
-    if(color == "black") {
-      trackList.style.color = "#ffffff";
-    } else {
-      trackList.style.color = "#000000";
-    }
-    socket.emit('color-change', { socketID: mySocketID, color: color });
-  });  
-});

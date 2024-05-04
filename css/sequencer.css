@@ -4,10 +4,6 @@ html {
 
 body {
     font-family: 'Montserrat', 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
-    display:flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-start;
     padding: 0;
     margin: 0;
     height: 100%;
@@ -18,17 +14,33 @@ body {
     user-select: none;
 }
 
+#container {
+    position: relative;
+    top: 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+    background-color: #444;
+    color: white;
+    overflow: hidden;
+}
+
 button {
     font-family: 'Montserrat', 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
     max-width: 7em;
     font-size: 1vw;
     height: 2em;
+    background-color: #EEE;
+    text-align: center;
 }
 
 #session-info {
-    width: 70%;
+    width: 100%;
     height: 100%;
-    display:none;
+    display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
@@ -37,30 +49,41 @@ button {
     color: white;
     padding: 1vw;
     font-size: 1.5vw;
+    position: absolute;
+    z-index: 1;
 }
 
 #list-container {
-    width: 30%;
+    display: flex;
+    flex-direction: column;
+    align-items: top;
+    justify-content: flex-start;
+    width: 100%;
     height: 100%;
-    background-color: #333;
+    background-color: white;
+    color: #333;
+    padding: 1vw;
+    font-size: 1.5vw;
+    position: absolute;
+    z-index: 0;
 }
 
 #list-title {
     font-weight: bold;
     padding-left: 1vw;
     padding-top: 1vw;
+    display: block;
 }
 
 #track-list {
     text-align: left;
     color: black;
     padding-top: 1vw;
-    border: 1px solid red;
 }
 
 .track-item {
     padding-left: 5px;
-    border: 1px solid red;
+    background-color: #EEE;
 }
 
 .track-ready {
@@ -74,7 +97,12 @@ button {
 }
 
 #session-title {
+    
+}
+
+#session-name {
     font-weight: bold;
+    color:lime;
 }
 
 #qrcode-wrapper {
@@ -98,30 +126,13 @@ button {
 }
 
 #copy {
-    background-color: white;
-    color: rgb(96, 0, 180);
+    display: block;
     width: 12em;
-    font-size: .8em;
-    margin: 0;
-    text-align: center;
-}
-
-#copy:active {
-    margin-top: 0.1vh;
-    margin-bottom: -0.1vh;
-    background-color: #EEE;
 }
 
 #url-copy {
     display: none;
 }
-
-audio {
-    display: none;
-    width: 0;
-    height: 0;
-}
-
 
 #intro {
     display: block;
@@ -133,11 +144,6 @@ audio {
     flex-direction: row;
     align-items: center;
     justify-content: center;
-}
-
-table#matrix {
-    width: 100%;
-    border-collapse: collapse;
 }
 
 #channel {
@@ -243,28 +249,32 @@ tr.synth-track {
     margin-left: 1vw;
 }
 
-.controls {
-    margin-left: 1vw;
-    font-size: 2.5vw;
-    height: 1.3em;
+#controls {
+    position: fixed;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: flex-start;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 1vw;
+    height: 50px;
+    z-index: 3;
+}
+
+#switch {
+    width: 3em;
 }
 
 button.controls:active {
-    margin-top: 0.05em;
-    margin-bottom: -0.05em;
+    margin-top: 0.03em;
+    margin-bottom: -0.03em;
 }
 
 button.controls:hover {
     background-color: black;
     color: white;
-}
-
-#tempo {
-    height: 1.3em;
-    border: 0;
-    padding: 0;
-    width: 2.3em;
-    text-align: right;
 }
 
 .cursor {
@@ -358,7 +368,8 @@ button.controls:hover {
     color: white;
 }
 button {
-    height: 40px;
+    height: 3em;
+    margin: .2em;
 }
 
 .color-button {

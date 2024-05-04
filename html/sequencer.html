@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>DBASS - Distributed Biological Architectural Sound System</title>
+    <title>MIDI Socket</title>
     <link rel="stylesheet" href="css/sequencer.css">
     <link rel="stylesheet" href="css/color-transitions.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=0">
@@ -11,73 +11,54 @@
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-
       gtag('config', 'G-DL12T801J8');
     </script>
   </head>
   <body>
 
-    <div id="session-info">
-      <div class="session-info">
-        <span id="session-title">
-        Session name: <span id="session-name"></span>
-        </span>
-      </div>
-      <div class="session-info">Use this URL to join this session</div>
-      <div class="session-info">
-        <a id="track-url" target="_blank"></a>
-      </div>
-      <div class="session-info">
-        <div id="copy">COPY TO CLIPBOARD</div>
-      </div>
-      <div class="session-info">Or scan this QR code:</div>
-      <div class="session-info" id="qrcode-wrapper">
-
-      </div>
-      <textarea id="url-copy"></textarea>
-
-
-      <table border="0">
-        <tr>
-          <td>
-            <button id="veil-on-button">Veil ON</button>            
-          </td>
-          <td>
-            <button id="veil-off-button">Veil OFF</button>            
-          </td>
-        </tr>
-      </table>
-      <table>
-        <tr>
-          <td><button class="color-button transition-black"   color="black"    id="color-black"></button></td>
-          <td><button class="color-button transition-white"   color="white"    id="color-white"></button></td>
-          <td><button class="color-button transition-red"     color="red"      id="color-red"></button></td>
-          <td><button class="color-button transition-green"   color="green"    id="color-green"></button></td>
-          <td><button class="color-button transition-blue"    color="blue"     id="color-blue"></button></td>
-          <td><button class="color-button transition-magenta" color="magenta"  id="color-magenta"></button></td>
-          <td><button class="color-button transition-cyan"    color="cyan"     id="color-cyan"></button></td>
-          <td><button class="color-button transition-yellow"  color="yellow"   id="color-yellow"></button></td>
-        </tr>
-      </table>
-    </div>
-    
-    <div id="list-container">
-      <div id="list-title">Connected devices:</div>
-      <table id="track-list" class="transition-lightgrey">
-      </table>
+    <div id="controls">
+      <button id="switch">✕</button>
+      <button id="veil-on-button">Veil ON</button>            
+      <button id="veil-off-button">Veil OFF</button>
+      <select id="select-midi-in" name="select-midi-in"></select>
+      <select id="select-midi-out" name="select-midi-out"></select>
     </div>
 
-    <audio autoplay="false" id="audio-player" src="" type="audio/mpeg" preload="auto" loop="true">
-      <p>
-        Your browser does not support HTML audio.
-      </p>
-    </audio>
+    <div id="container">
+
+      <div id="session-info">
+        <div class="session-info">
+          <span id="session-title">
+          Nombre de sesión: <span id="session-name"></span>
+          </span>
+        </div>
+        <div class="session-info">Comparte este enlace para invitar a la sesión:</div>
+        <div class="session-info">
+          <a id="track-url" target="_blank"></a>
+        </div>
+        <div class="session-info">
+          <button id="copy">Copiar enlace</button>
+        </div>
+        <div class="session-info">O escanea este código QR:</div>
+        <div class="session-info" id="qrcode-wrapper">
+
+        </div>
+        <textarea id="url-copy"></textarea>
+      </div>
+      
+      <div id="list-container">
+        <div id="list-title">Connected devices:</div>
+        <table id="track-list">
+        </table>
+      </div>
+    </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="scripts/config.js"></script>
     <script src="scripts/include.js"></script>
     <script src="scripts/sequencerObj.js"></script>
     <script src="scripts/sequencer.js"></script>
+    <script src="scripts/midi.js"></script>
 
   </body>
 </html>
