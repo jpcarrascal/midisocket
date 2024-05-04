@@ -1,5 +1,5 @@
 {
-    "name": "DBASS",
+    "name": "MIDI Socket",
     "version": "0.0.1",
     "description": "Collaborative Step Sequencer",
     "dependencies": {
