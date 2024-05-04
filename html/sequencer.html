@@ -5,13 +5,13 @@
     <link rel="stylesheet" href="css/sequencer.css">
     <link rel="stylesheet" href="css/color-transitions.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=0">
-    <!-- Global site tag (gtag.js) - Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-DL12T801J8"></script>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-LCC0RPQNKH"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-      gtag('config', 'G-DL12T801J8');
+      gtag('config', 'G-LCC0RPQNKH');
     </script>
   </head>
   <body>
@@ -20,8 +20,32 @@
       <button id="switch">✕</button>
       <button id="veil-on-button">Veil ON</button>            
       <button id="veil-off-button">Veil OFF</button>
-      <select id="select-midi-in" name="select-midi-in"></select>
-      <select id="select-midi-out" name="select-midi-out"></select>
+      <div id="hidden">
+        <select id="select-midi-in" name="select-midi-in">
+          <option value="-1">None</option>
+        </select>
+        <select id="select-midi-out" name="select-midi-out">
+          <option value="-1">None</option>
+        </select>
+        <select id="select-midi-channel">
+          <option value="0">1</option>
+          <option value="1">2</option>
+          <option value="2">3</option>
+          <option value="3">4</option>
+          <option value="4">5</option>
+          <option value="5">6</option>
+          <option value="6">7</option>
+          <option value="7">8</option>
+          <option value="8">9</option>
+          <option value="9">10</option>
+          <option value="10">11</option>
+          <option value="11">12</option>
+          <option value="12">13</option>
+          <option value="13">14</option>
+          <option value="14">15</option>
+          <option value="15">16</option>          
+        </select>
+      </div>
     </div>
 
     <div id="container">

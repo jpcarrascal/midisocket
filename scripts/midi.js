@@ -1,4 +1,4 @@
-
+var midiOuts = [];
 
 function listDevices(midi) {
     var outList = document.getElementById("select-midi-out");
@@ -10,6 +10,7 @@ function listDevices(midi) {
     // outputs is an Iterator
 
     for (var output = outputs.next(); output && !output.done; output = outputs.next()) {
+        midiOuts[output.value.id] = midi.outputs.get(output.value.id);
         var option = document.createElement("option");
         option.value = output.value.id;
         option.text = output.value.name// + ", ID: " + output.value.id;

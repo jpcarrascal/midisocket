@@ -52,10 +52,34 @@ if(!initials && session) { // No initials == no socket connection
     /* ----------- UI handlers ------------ */
 
     document.querySelectorAll(".key").forEach(function(key) {
-        key.addEventListener("click", function(e) {
+        key.addEventListener("touchstart", function(e) {
+            e.preventDefault();
             var note = parseInt(this.getAttribute("note"));
-            socket.emit("midi message", {type: "ui", message: [-1, note, -1], socketID: mySocketID});
+            console.log("Note ON: " + note);
+            socket.emit("midi message", {type: "ui", message: [NOTE_ON, note, 127], socketID: mySocketID});
         });
+
+        key.addEventListener("touchend", function(e) {
+            e.preventDefault();
+            var note = parseInt(this.getAttribute("note"));
+            console.log("Note OFF: " + note);
+            socket.emit("midi message", {type: "ui", message: [NOTE_OFF, note, 0], socketID: mySocketID});
+        });
+
+        key.addEventListener("mousedown", function(e) {
+            e.preventDefault();
+            var note = parseInt(this.getAttribute("note"));
+            console.log("Note ON: " + note);
+            socket.emit("midi message", {type: "ui", message: [NOTE_ON, note, 127], socketID: mySocketID});
+        });
+
+        key.addEventListener("mouseup", function(e) {
+            e.preventDefault();
+            var note = parseInt(this.getAttribute("note"));
+            console.log("Note OFF: " + note);
+            socket.emit("midi message", {type: "ui", message: [NOTE_OFF, note, 0], socketID: mySocketID});
+        });
+        
     });
 
 }

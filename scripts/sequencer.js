@@ -43,36 +43,39 @@ socket.on('sequencer exists', function(msg) {
 
 socket.on('track joined', function(msg) {
   //{ initials: initials, track:track, socketid: socket.id }
-  console.log("Track joined: " + msg.socketid);
-  tracks.push({socketID: msg.socketid, initials:msg.initials, ready: false, midiOut: null, midiIn: null});
+  //console.log("Track joined: " + msg.socketid);
+  tracks.push({socketID: msg.socketid, initials:msg.initials, ready: false, midiOut: null, midiIn: null, channel: null});
   updateTracks(tracks);
 });
 
 socket.on('midi message', function(msg) {
   //{ initials: initials, track:track, socketid: socket.id }
-  console.log(msg);
+  var out = tracks.find(function(value, index, arr){ return value.socketID == msg.socketID;}).midiOut;
+  var channel = parseInt(tracks.find(function(value, index, arr){ return value.socketID == msg.socketID;}).channel);
+  if(msg.type == "ui") {
+    midiOuts[out].send([msg.message[0] + channel, msg.message[1], msg.message[2]]);
+  }
 });
 
 socket.on('track ready', function(msg) {
   if(msg.ready) {
     tracks.find(function(value, index, arr){ return value.socketID == msg.socketID;}).ready = true;
     document.getElementById(msg.socketID).classList.add("track-ready");
-    console.log("Track ready: " + msg.socketID);
+    //console.log("Track ready: " + msg.socketID);
   }
   else {
     tracks.find(function(value, index, arr){ return value.socketID == msg.socketID;}).ready = false;
     document.getElementById(msg.socketID).classList.remove("track-ready");
-    console.log("Track not ready: " + msg.socketID);
+    //console.log("Track not ready: " + msg.socketID);
   }
 });
 
 socket.on('track left', function(msg) {
   //{ initials: initials, track:track, socketid: socket.id }
-  console.log("Track left: " + msg.socketid);
-  console.log(tracks);
+  //console.log("Track left: " + msg.socketid);
   tracks = tracks.filter(function(value, index, arr){ return value.socketID != msg.socketid;});
-  document.getElementById(msg.socketid).remove();
-  console.log(tracks);
+  var item = document.getElementById(msg.socketid);
+  if(item) item.remove();
   updateTracks(tracks);
 });
 
@@ -86,17 +89,24 @@ function updateTracks(tracks) {
     return "<tr><td class='track-item " + itemClass + "' id='" + value.socketID + "'>"+value.initials+"</td><tr>";
   }).join("");
   */
+  var i = 0;
   tracks.forEach(function(item, index, arr) {
     var trackItem = document.getElementById(item.socketID);
     if(!trackItem) {
-      var midiSelector = document.getElementById("select-midi-out").cloneNode(true);
+      var midiOutSelector = document.getElementById("select-midi-out").cloneNode(true);
+      midiOutSelector.selectedIndex = 1;
+      item.midiOut = midiOutSelector.value;
+      var channelSelector = document.getElementById("select-midi-channel").cloneNode(true);
+      channelSelector.selectedIndex = index;
+      item.channel = channelSelector.value;
       var newRow = document.createElement("tr");
       var newCell = document.createElement("td");
       newRow.classList.add("track-item");
       newRow.setAttribute("id",item.socketID);
       newCell.innerText = item.initials;
       newRow.appendChild(newCell);
-      newRow.appendChild(midiSelector);
+      newRow.appendChild(midiOutSelector);
+      newRow.appendChild(channelSelector);
       trackList.appendChild(newRow);
     }
   });

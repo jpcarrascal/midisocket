@@ -6,14 +6,13 @@
     <link rel="stylesheet" href="css/color-transitions.css">
     <link href='https://fonts.googleapis.com/css?family=Montserrat' rel='stylesheet'>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <!-- Global site tag (gtag.js) - Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-DL12T801J8"></script>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-LCC0RPQNKH"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-
-      gtag('config', 'G-DL12T801J8');
+      gtag('config', 'G-LCC0RPQNKH');
     </script>
   </head>
   <body>
@@ -32,7 +31,18 @@
     </div>
 
     <div id="controller" class="full-screen">
-      <ul class="set">
+      <div id="rotate-me">
+        <span id="counterclockwise">↺</span>
+        <br/>
+        Ponme horizontal
+      </div>
+      <ul class="set" id="keyboard">
+        <li class="key white e"  note="67"></li>
+        <li class="key black ds" note="68"></li>
+        <li class="key white d"  note="69"></li>
+        <li class="key black cs" note="70"></li>
+        <li class="key white c"  note="71"></li>
+
         <li class="key white b"  note="60"></li>
         <li class="key black as" note="61"></li>
         <li class="key white a"  note="62"></li>
