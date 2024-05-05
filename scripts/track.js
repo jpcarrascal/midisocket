@@ -52,34 +52,50 @@ if(!initials && session) { // No initials == no socket connection
     /* ----------- UI handlers ------------ */
 
     document.querySelectorAll(".key").forEach(function(key) {
-        key.addEventListener("touchstart", function(e) {
+        addListenerMulti(key, "touchstart mousedown", function(e) {
             e.preventDefault();
-            var note = parseInt(this.getAttribute("note"));
+            var note = calculateNote(this);
             console.log("Note ON: " + note);
             socket.emit("midi message", {type: "ui", message: [NOTE_ON, note, 127], socketID: mySocketID});
         });
 
-        key.addEventListener("touchend", function(e) {
+        addListenerMulti(key, "mouseup mouseleave touchend", function(e) {
             e.preventDefault();
-            var note = parseInt(this.getAttribute("note"));
-            console.log("Note OFF: " + note);
-            socket.emit("midi message", {type: "ui", message: [NOTE_OFF, note, 0], socketID: mySocketID});
-        });
-
-        key.addEventListener("mousedown", function(e) {
-            e.preventDefault();
-            var note = parseInt(this.getAttribute("note"));
-            console.log("Note ON: " + note);
-            socket.emit("midi message", {type: "ui", message: [NOTE_ON, note, 127], socketID: mySocketID});
-        });
-
-        key.addEventListener("mouseup", function(e) {
-            e.preventDefault();
-            var note = parseInt(this.getAttribute("note"));
+            var note = calculateNote(this);
             console.log("Note OFF: " + note);
             socket.emit("midi message", {type: "ui", message: [NOTE_OFF, note, 0], socketID: mySocketID});
         });
         
     });
+
+    document.querySelectorAll(".oct").forEach(function(oct) {
+        addListenerMulti(oct, "touchstart mousedown", function(e) {
+            e.preventDefault();
+            if(this.id == "oct-up") {
+                console.log("Octave up");
+                document.querySelectorAll(".key").forEach(function(key) {
+                    var oct = parseInt(key.getAttribute("octave"));
+                    if(oct < 9) key.setAttribute("octave", oct + 1);
+                });
+            } else {
+                console.log("Octave down");
+                document.querySelectorAll(".key").forEach(function(key) {
+                    var oct = parseInt(key.getAttribute("octave"));
+                    if(oct > 0) key.setAttribute("octave", oct - 1);
+                });
+            }
+        });
+
+    });
+
+    function calculateNote(elem) {
+        var note = parseInt(elem.getAttribute("note"));
+        var octave = parseInt(elem.getAttribute("octave"));
+        return note + (12 * octave);
+    }
+
+    function addListenerMulti(el, s, fn) {
+        s.split(' ').forEach(e => el.addEventListener(e, fn, false));
+    }
 
 }

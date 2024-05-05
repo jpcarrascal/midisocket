@@ -1,4 +1,5 @@
 var midiOuts = [];
+var midiIns = [];
 
 function listDevices(midi) {
     var outList = document.getElementById("select-midi-out");
@@ -11,18 +12,28 @@ function listDevices(midi) {
 
     for (var output = outputs.next(); output && !output.done; output = outputs.next()) {
         midiOuts[output.value.id] = midi.outputs.get(output.value.id);
-        var option = document.createElement("option");
-        option.value = output.value.id;
-        option.text = output.value.name// + ", ID: " + output.value.id;
-        outList.appendChild(option);
+        document.querySelectorAll(".select-midi-out").forEach(function(elem) {
+            var option = document.createElement("option");
+            option.value = output.value.id;
+            option.text = output.value.name;    
+            if(!isElemInDropdown(elem, option)) {
+                if(option.value == "-274818378") console.log("Adding to " + elem.id);
+                elem.appendChild(option);
+            }
+        });
         numOuts++;
     }
 
     for (var input = inputs.next(); input && !input.done; input = inputs.next()) {
-        var option = document.createElement("option");
-        option.value = input.value.id;
-        option.text = input.value.name// + ", ID: " + input.value.id;
-        inList.appendChild(option);
+        midiIns[input.value.id] = midi.inputs.get(input.value.id);
+        document.querySelectorAll(".select-midi-in").forEach(function(elem) {
+            var option = document.createElement("option");
+            option.value = input.value.id;
+            option.text = input.value.name;    
+            if(!isElemInDropdown(elem, option)) {
+                elem.appendChild(option);
+            }
+        });
         numIns++;
     }
     
@@ -54,6 +65,9 @@ function success(midi) {
     //MIDIout = midi.outputs.get(MIDIoutIndex);
     //MIDIin = midi.inputs.get(MIDIinIndex);
     //MIDIin.onmidimessage = processMIDIin;
+    midi.onstatechange = (event) => {
+        listDevices(midi);
+    };
 }
 
 function processMIDIin(midiMsg) {

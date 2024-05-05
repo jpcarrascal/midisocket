@@ -409,3 +409,12 @@ function copyURL(id) {
   copyText.setSelectionRange(0, 99999); /* For mobile devices */
   navigator.clipboard.writeText(copyText.value);
 }
+
+function isElemInDropdown(select, elem) {
+  for (i = 0; i < select.length; ++i){
+    if (select.options[i].value == elem.value){
+      return true;
+    }
+  }
+  return false;
+}

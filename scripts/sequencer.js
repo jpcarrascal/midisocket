@@ -51,6 +51,7 @@ socket.on('track joined', function(msg) {
 socket.on('midi message', function(msg) {
   //{ initials: initials, track:track, socketid: socket.id }
   var out = tracks.find(function(value, index, arr){ return value.socketID == msg.socketID;}).midiOut;
+  console.log("Sending to " + out);
   var channel = parseInt(tracks.find(function(value, index, arr){ return value.socketID == msg.socketID;}).channel);
   if(msg.type == "ui") {
     midiOuts[out].send([msg.message[0] + channel, msg.message[1], msg.message[2]]);
@@ -94,11 +95,20 @@ function updateTracks(tracks) {
     var trackItem = document.getElementById(item.socketID);
     if(!trackItem) {
       var midiOutSelector = document.getElementById("select-midi-out").cloneNode(true);
+      midiOutSelector.setAttribute("id","select-midi-out-"+index);
       midiOutSelector.selectedIndex = 1;
       item.midiOut = midiOutSelector.value;
+      midiOutSelector.addEventListener("change", function(event){
+        tracks.find(function(value, index, arr){ return value.socketID == item.socketID;}).midiOut = this.value;
+      });
       var channelSelector = document.getElementById("select-midi-channel").cloneNode(true);
+      channelSelector.setAttribute("id","select-midi-channel-"+index);
       channelSelector.selectedIndex = index;
       item.channel = channelSelector.value;
+      channelSelector.addEventListener("change", function(event){
+        tracks.find(function(value, index, arr){ return value.socketID == item.socketID;}).channel = this.value;
+        console.log(tracks);
+      });
       var newRow = document.createElement("tr");
       var newCell = document.createElement("td");
       newRow.classList.add("track-item");
