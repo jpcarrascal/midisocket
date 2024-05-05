@@ -1,8 +1,6 @@
 var code = "seq";
 var tracks = [];
 var trackList = document.getElementById("track-list");
-var bgLoopLocation = "sounds/default/bg.mp3";
-var bgPlaying = false;
 var infoShown = false;
 
 if(!infoShown) {

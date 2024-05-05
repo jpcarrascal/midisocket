@@ -70,7 +70,6 @@ app.get('/latency', (req, res) => {
 app.use('/scripts', express.static(__dirname + '/scripts/'));
 app.use('/css', express.static(__dirname + '/css/'));
 app.use('/images', express.static(__dirname + '/images/'));
-app.use('/sounds', express.static(__dirname + '/sounds/'));
 
 io.on('connection', (socket) => {
     var seq = false;
@@ -115,16 +114,6 @@ io.on('connection', (socket) => {
         if(sessions.isReady(session)) {
             var track = sessions.allocateAvailableParticipant(session, socket.id, initials);
             logger.info("#" + session + " @[" + initials + "] joined session on track " + track);
-            // Read sound files:
-            var fileList = [];
-            fs.readdir("./sounds/default/loops", (err, files) => {
-                files.forEach(file => {
-                    if(file.toLowerCase().includes(".mp3") || file.toLowerCase().includes(".wav")) {
-                        fileList.push(file);
-                    }
-                });
-                io.to(socket.id).emit('sound-list', {list: fileList});
-            });
             socket.broadcast.to(session).emit('track joined', { initials: initials, track:track, socketid: socket.id });
             socket.on('disconnect', () => {
                 var track2delete = sessions.getParticipantNumber(session, socket.id);
