@@ -1,6 +1,7 @@
 var code = "seq";
 var tracks = [];
-var trackList = document.getElementById("track-list");
+var synths = [];
+var trackList = document.getElementById("track-list-body");
 var infoShown = false;
 
 if(!infoShown) {
@@ -42,17 +43,29 @@ socket.on('sequencer exists', function(msg) {
 socket.on('track joined', function(msg) {
   //{ initials: initials, track:track, socketid: socket.id }
   //console.log("Track joined: " + msg.socketid);
+  // This extracts the channel from the MIDI message
   tracks.push({socketID: msg.socketid, initials:msg.initials, ready: false, midiOut: null, midiIn: null, channel: null});
   updateTracks(tracks);
 });
 
 socket.on('midi message', function(msg) {
   //{ initials: initials, track:track, socketid: socket.id }
-  var out = tracks.find(function(value, index, arr){ return value.socketID == msg.socketID;}).midiOut;
-  console.log("Sending to " + out);
+  var port = tracks.find(function(value, index, arr){ return value.socketID == msg.socketID;}).midiOut;
+  if(port == -1) {
+    out = synths[msg.socketID];
+    //console.log("Sending to internal synth " + msg.socketID);
+  } else {
+    out = midiOuts[port];
+    //console.log("Sending to " + port);
+  }
   var channel = parseInt(tracks.find(function(value, index, arr){ return value.socketID == msg.socketID;}).channel);
+  var initialsTd = document.getElementById("initials-"+msg.socketID);
   if(msg.type == "ui") {
-    midiOuts[out].send([msg.message[0] + channel, msg.message[1], msg.message[2]]);
+    out.send([msg.message[0] + channel, msg.message[1], msg.message[2]]);
+    if(msg.message[0] != NOTE_OFF) flashElement(initialsTd, "lime");
+  } else if(msg.type == "midi") {
+    out.send(msg.message);
+    if( (msg.message[0] & 0x0F) != NOTE_OFF ) flashElement(initialsTd, "lime");
   }
 });
 
@@ -89,33 +102,99 @@ function updateTracks(tracks) {
   }).join("");
   */
   var i = 0;
-  tracks.forEach(function(item, index, arr) {
-    var trackItem = document.getElementById(item.socketID);
+  tracks.forEach(function(track, index, arr) {
+    var trackItem = document.getElementById(track.socketID);
     if(!trackItem) {
+
+      var newRow = document.createElement("tr");
+      var newCell = document.createElement("td");
+      newCell.id = "initials-"+track.socketID;
+      newRow.classList.add("track-item");
+      newRow.setAttribute("id",track.socketID);
+      newCell.innerText = track.initials;
+      newRow.appendChild(newCell);
+
+      // -------- MIDI Port selector:
       var midiOutSelector = document.getElementById("select-midi-out").cloneNode(true);
       midiOutSelector.setAttribute("id","select-midi-out-"+index);
-      midiOutSelector.selectedIndex = 1;
-      item.midiOut = midiOutSelector.value;
+      midiOutSelector.selectedIndex = 0;
+      track.midiOut = midiOutSelector.value;
+
+      var synthDropdown = document.createElement("select");
+      synthDropdown.id = "prog-" + track.socketID;
+      synthDropdown.setAttribute("synthId", track.socketID);
+
       midiOutSelector.addEventListener("change", function(event){
-        tracks.find(function(value, index, arr){ return value.socketID == item.socketID;}).midiOut = this.value;
+        // TODO: write synthSetup(track, this);
+        track.midiOut = this.value;
+        console.log(tracks)
+        if(this.value == "-1") {
+          synths[track.socketID] = new WebAudioTinySynth({quality:1, useReverb:0, debug:1});
+          function pg(event) { 
+            prog(synths[this.getAttribute("synthId")], this.selectedIndex);
+          }
+          synthDropdown.addEventListener("change", pg);
+          synthDropdown.style.visibility = "visible";
+          updateProgramList(synths[track.socketID], synthDropdown)
+        } else {
+          synthDropdown.style.visibility = "hidden";
+          synthDropdown.removeEventListener("change", pg);
+          synths[track.socketID] = null;
+        }
       });
+
+      if(midiOutSelector.value == "-1") {
+        synths[track.socketID] = new WebAudioTinySynth({quality:1, useReverb:0, debug:1});
+        function pg(event) { 
+          prog(this.getAttribute("synthId"), this.selectedIndex);
+        }
+        synthDropdown.addEventListener("change", pg);
+        synthDropdown.style.visibility = "visible";
+        updateProgramList(synths[track.socketID], synthDropdown)
+      } else {
+        synthDropdown.style.visibility = "hidden";
+        synthDropdown.removeEventListener("change", pg);
+        synths[track.socketID] = null;
+      }
+
+      newCell = document.createElement("td");
+      newCell.appendChild(midiOutSelector);
+      newCell.appendChild(synthDropdown);
+      newRow.appendChild(newCell);
+
+      // -------- MIDI Channel selector:
+      newCell = document.createElement("td");
       var channelSelector = document.getElementById("select-midi-channel").cloneNode(true);
       channelSelector.setAttribute("id","select-midi-channel-"+index);
       // TODO: better track allocation
       channelSelector.selectedIndex = index;
-      item.channel = channelSelector.value;
+      track.channel = channelSelector.value;
       channelSelector.addEventListener("change", function(event){
-        tracks.find(function(value, index, arr){ return value.socketID == item.socketID;}).channel = this.value;
+        tracks.find(function(value, index, arr){ return value.socketID == track.socketID;}).channel = this.value;
         console.log(tracks);
       });
-      var newRow = document.createElement("tr");
-      var newCell = document.createElement("td");
-      newRow.classList.add("track-item");
-      newRow.setAttribute("id",item.socketID);
-      newCell.innerText = item.initials;
+      newCell.appendChild(channelSelector);
       newRow.appendChild(newCell);
-      newRow.appendChild(midiOutSelector);
-      newRow.appendChild(channelSelector);
+
+      // -------- Panic button:
+      newCell = document.createElement("td");
+      var panicButton = document.createElement("button");
+      panicButton.innerText = "Panic";
+      panicButton.classList.add("panic-button");
+      panicButton.addEventListener("click", function(event){
+        var channel = parseInt(tracks.find(function(value, index, arr){ return value.socketID == track.socketID;}).channel);
+        var port = tracks.find(function(value, index, arr){ return value.socketID == track.socketID;}).midiOut;
+        if(port == -1) {
+          console.log("Panic to synth " + track.socketID);
+          synths[track.socketID].send([CC_CHANGE + channel, 123, 127]);
+        } else {
+          midiOuts[port].send([CC_CHANGE + channel, 123, 127]);
+        }
+        flashElement(this, "red");
+      });
+      newCell.appendChild(panicButton);
+      newRow.appendChild(newCell);
+
       trackList.appendChild(newRow);
     }
   });
@@ -146,6 +225,7 @@ document.getElementById("copy").addEventListener("click", function(e) {
 
 var veilOnButton = document.getElementById("veil-on-button");
 var veilOffButton = document.getElementById("veil-off-button");
+var panicAll = document.getElementById("panic-all");
 
 veilOnButton.addEventListener("click",function(event){
   this.style.backgroundColor = "red";
@@ -159,3 +239,31 @@ veilOffButton.addEventListener("click",function(event){
   socket.emit('veil-off', { socketID: mySocketID });
 });
 
+panicAll.addEventListener("click",function(event){
+  console.log("Panic all");
+  var panicButtons = document.querySelectorAll(".panic-button");
+  panicButtons.forEach(function(button) {
+    button.click();
+  });
+});
+
+function flashElement(elem, color) {
+  var originalColor = elem.style.backgroundColor;
+  elem.style.backgroundColor = color;
+  setTimeout(function() { elem.style.backgroundColor = originalColor; }, 200);
+}
+
+function prog(id, pg){
+  var synth = synths[id];
+  console.log("Changing program of " + id + " to:" + pg);
+  synth.send([0xc0, pg]);
+}
+
+async function updateProgramList(synth, dropdownElem){
+  await synth.ready();
+  for(var i=0;i<128;++i){
+    var o = document.createElement("option");
+    o.innerHTML = (i+1)+" : "+synth.getTimbreName(0,i);
+    dropdownElem.appendChild(o);
+  }
+}

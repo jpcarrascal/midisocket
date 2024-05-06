@@ -20,6 +20,7 @@
       <button id="switch">✕</button>
       <button id="veil-on-button">Veil ON</button>            
       <button id="veil-off-button">Veil OFF</button>
+      <button id="panic-all">Panic</button>
       <div id="hidden">
         <!--
           <select id="select-midi-in" class="select-midi-in">
@@ -27,7 +28,7 @@
         </select>
         -->
         <select id="select-midi-out" class="select-midi-out">
-          <option value="-1">None</option>
+          <option value="-1">Internal</option>
         </select>
         <select id="select-midi-channel">
           <option value="0">1</option>
@@ -75,6 +76,17 @@
       <div id="list-container">
         <div id="list-title">Connected devices:</div>
         <table id="track-list">
+          <thead>
+            <tr>
+              <th>Device</th>
+              <th>Output</th>
+              <th>Channel</th>
+              <th>Panic</th>
+            </tr>
+          </thead>
+          <tbody id="track-list-body">
+
+          </tbody>
         </table>
       </div>
     </div>
@@ -85,6 +97,7 @@
     <script src="scripts/sequencerObj.js"></script>
     <script src="scripts/sequencer.js"></script>
     <script src="scripts/midi.js"></script>
+    <script src="scripts/webaudio-tinysynth.js"></script>
 
   </body>
 </html>

@@ -7,7 +7,7 @@ const { Server } = require("socket.io");
 const io = new Server(server);
 const { AllSessions } = require("./scripts/sessionsObj.js");
 const config = require('./scripts/config.js');
-var cookie = require("cookie");
+const cookie = require("cookie");
 
 const { createLogger, format, transports } = require('winston');
 const { combine, timestamp, label, printf } = format;

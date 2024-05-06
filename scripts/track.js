@@ -2,6 +2,9 @@ var initials = findGetParameter("initials");
 var session = findGetParameter("session");
 if(session === "undefined") session = null;
 if(initials === "undefined") initials = null;
+setCookie("retries", 0, 1000);
+var retries = 0;
+var maxRetries = 3;
 
 if(!initials && session) { // No initials == no socket connection
     document.getElementById("initials-form").style.display = "block";
@@ -17,6 +20,7 @@ if(!initials && session) { // No initials == no socket connection
     var mySocketID;
     var socket = io("", {query:{initials: initials, session: session}});
     socket.on("connect", () => {
+        setCookie("retries", 0, 1000); retries = 0;
         console.log("Connected, my socketid:" + socket.id);
         mySocketID = socket.id;
     });
@@ -33,9 +37,19 @@ if(!initials && session) { // No initials == no socket connection
     });
 
     socket.on('exit session', function(msg) {
-        setTimeout(() => {
-            window.location.reload(true);
-        }, 1000);
+        if(retries < maxRetries) {
+            console.log("Retrying...");
+            retries = parseInt(getCookie("retries")) + 1;
+            console.log("Retries: " + retries);
+            console.log(document.cookie);
+            setCookie("retries", retries, 1000);
+            setTimeout(() => {
+                window.location.reload(true);
+            }, 1000);
+        } else {
+            console.log("Max retries reached. Exiting.");
+            document.location.href = "/track?exitreason=" + msg.reason;
+        }
     });
 
     // Veil for preventing people from joining earlier than intended.
@@ -50,21 +64,34 @@ if(!initials && session) { // No initials == no socket connection
     });
 
     /* ----------- UI handlers ------------ */
-
+    var mouseDown = 0;
     document.querySelectorAll(".key").forEach(function(key) {
         addListenerMulti(key, "touchstart mousedown", function(e) {
+            ++mouseDown;
             e.preventDefault();
             var note = calculateNote(this);
-            console.log("Note ON: " + note);
             socket.emit("midi message", {type: "ui", message: [NOTE_ON, note, 127], socketID: mySocketID});
         });
 
-        addListenerMulti(key, "mouseup mouseleave touchend", function(e) {
-            e.preventDefault();
-            var note = calculateNote(this);
-            console.log("Note OFF: " + note);
-            socket.emit("midi message", {type: "ui", message: [NOTE_OFF, note, 0], socketID: mySocketID});
+        addListenerMulti(key, "mouseup touchend mouseleave", function(e) {
+            if(mouseDown > 0) {
+                --mouseDown; if(mouseDown < 0) mouseDown = 0;
+                e.preventDefault();
+                var note = calculateNote(this);
+                socket.emit("midi message", {type: "ui", message: [NOTE_OFF, note, 0], socketID: mySocketID});
+            }
         });
+        /*
+        key.addEventListener("mouseleave", function(e) {
+            console.log("Mouse leave " + mouseDown);
+            if(mouseDown > 0) {
+                --mouseDown; if(mouseDown < 0) mouseDown = 0;
+                e.preventDefault();
+                var note = calculateNote(this);
+                socket.emit("midi message", {type: "ui", message: [NOTE_OFF, note, 0], socketID: mySocketID});
+            }
+        });
+        */
         
     });
 
