@@ -111,7 +111,7 @@ body {
     height:18.875em;
     width:43em;
     margin:5em auto;
-    padding:1.5em 0 0 .75em;
+    padding:1.5em 0 0 1em;
     position:relative;
     user-select: none;
     touch-action: manipulation;
@@ -127,7 +127,7 @@ body {
   
   ul .white {
     height:16em;
-    width:3.8em;
+    width:3.75em;
     z-index:1;
     border-left:1px solid #bbb;
     border-bottom:1px solid #bbb;
