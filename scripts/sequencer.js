@@ -101,6 +101,7 @@ function updateTracks(tracks) {
       });
       var channelSelector = document.getElementById("select-midi-channel").cloneNode(true);
       channelSelector.setAttribute("id","select-midi-channel-"+index);
+      // TODO: better track allocation
       channelSelector.selectedIndex = index;
       item.channel = channelSelector.value;
       channelSelector.addEventListener("change", function(event){
