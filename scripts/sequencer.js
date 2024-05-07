@@ -4,6 +4,8 @@ var synths = [];
 var trackList = document.getElementById("track-list-body");
 var infoShown = false;
 
+var synth = new WebAudioTinySynth({quality:1, useReverb:0, debug:1});
+
 if(!infoShown) {
   document.getElementById("switch").innerText = "Info";
   document.getElementById("session-info").style.display = "none";
@@ -52,7 +54,8 @@ socket.on('midi message', function(msg) {
   //{ initials: initials, track:track, socketid: socket.id }
   var port = tracks.find(function(value, index, arr){ return value.socketID == msg.socketID;}).midiOut;
   if(port == -1) {
-    out = synths[msg.socketID];
+    //out = synths[msg.socketID];
+    out = synth;
     //console.log("Sending to internal synth " + msg.socketID);
   } else {
     out = midiOuts[port];
@@ -123,40 +126,44 @@ function updateTracks(tracks) {
       var synthDropdown = document.createElement("select");
       synthDropdown.id = "prog-" + track.socketID;
       synthDropdown.setAttribute("synthId", track.socketID);
+      synthDropdown.setAttribute("channel", index);
 
       midiOutSelector.addEventListener("change", function(event){
         // TODO: write synthSetup(track, this);
         track.midiOut = this.value;
         console.log(tracks)
         if(this.value == "-1") {
-          synths[track.socketID] = new WebAudioTinySynth({quality:1, useReverb:0, debug:1});
+          /// ***
+          //synths[track.socketID] = new WebAudioTinySynth({quality:1, useReverb:0, debug:1});
           function pg(event) { 
-            prog(synths[this.getAttribute("synthId")], this.selectedIndex);
+            prog(this.getAttribute("channel"), this.selectedIndex);
           }
           synthDropdown.addEventListener("change", pg);
           synthDropdown.style.visibility = "visible";
-          updateProgramList(synths[track.socketID], synthDropdown)
+          updateProgramList(synth, synthDropdown)
         } else {
           synthDropdown.style.visibility = "hidden";
           synthDropdown.removeEventListener("change", pg);
-          synths[track.socketID] = null;
+          //synths[track.socketID] = null;
         }
+        /// ***
       });
 
       if(midiOutSelector.value == "-1") {
-        synths[track.socketID] = new WebAudioTinySynth({quality:1, useReverb:0, debug:1});
+        /// ***
+        //synths[track.socketID] = new WebAudioTinySynth({quality:1, useReverb:0, debug:1});
         function pg(event) { 
-          prog(this.getAttribute("synthId"), this.selectedIndex);
+          prog(this.getAttribute("channel"), this.selectedIndex);
         }
         synthDropdown.addEventListener("change", pg);
         synthDropdown.style.visibility = "visible";
-        updateProgramList(synths[track.socketID], synthDropdown)
+        updateProgramList(synth, synthDropdown)
       } else {
         synthDropdown.style.visibility = "hidden";
         synthDropdown.removeEventListener("change", pg);
-        synths[track.socketID] = null;
+        //synths[track.socketID] = null;
       }
-
+      /// ***
       newCell = document.createElement("td");
       newCell.appendChild(midiOutSelector);
       newCell.appendChild(synthDropdown);
@@ -248,15 +255,16 @@ panicAll.addEventListener("click",function(event){
 });
 
 function flashElement(elem, color) {
-  var originalColor = elem.style.backgroundColor;
   elem.style.backgroundColor = color;
-  setTimeout(function() { elem.style.backgroundColor = originalColor; }, 200);
+  setTimeout(function() { elem.style.backgroundColor = "transparent"; }, 200);
 }
 
-function prog(id, pg){
-  var synth = synths[id];
-  console.log("Changing program of " + id + " to:" + pg);
-  synth.send([0xc0, pg]);
+function prog(ch, pg){
+  if(ch == undefined) ch = 0;
+  var msg = [0xc0 + parseInt(ch), pg];
+  console.log(msg);
+  console.log("Changing program on ch " + ch + " to:" + pg);
+  synth.send(msg);
 }
 
 async function updateProgramList(synth, dropdownElem){
