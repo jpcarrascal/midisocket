@@ -16,7 +16,7 @@ body {
 
 #container {
     position: relative;
-    top: 50px;
+    top: 5vw;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -30,11 +30,19 @@ body {
 
 button {
     font-family: 'Montserrat', 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
-    max-width: 7em;
-    font-size: 1vw;
+    width: 7em;
+    font-size: 1.2vw;
     height: 2em;
     background-color: #EEE;
     text-align: center;
+    padding-left: 0;
+    padding-right: 0;
+    margin: .2vw;
+}
+
+select {
+    font-size: 1.2vw;
+    margin: .2vw;
 }
 
 #session-info {
@@ -229,17 +237,6 @@ tr.synth-track {
     }
 }
 
-
-
-#control-panel {
-    display:flex;
-    width: 100%;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    margin: 1vw;
-}
-
 #big-instrument-icon {
     width: 7vw;
 }
@@ -253,13 +250,13 @@ tr.synth-track {
     position: fixed;
     display: flex;
     flex-direction: row;
-    align-items: flex-start;
+    align-items: center;
     justify-content: flex-start;
     top: 0;
     left: 0;
     width: 100%;
     padding: 1vw;
-    height: 50px;
+    height: 3vw;
     z-index: 3;
 }
 
@@ -267,9 +264,13 @@ tr.synth-track {
     width: 3em;
 }
 
-button.controls:active {
-    margin-top: 0.03em;
-    margin-bottom: -0.03em;
+button:active {
+    background-color: black;
+    color: white;
+    /*
+    margin-top: 1px;
+    margin-bottom: -1px;
+    */
 }
 
 button.controls:hover {
@@ -366,10 +367,6 @@ button.controls:hover {
 .solo-on {
     background-color: tomato;
     color: white;
-}
-button {
-    height: 3em;
-    margin: .2em;
 }
 
 .color-button {

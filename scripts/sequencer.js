@@ -4,7 +4,7 @@ var synths = [];
 var trackList = document.getElementById("track-list-body");
 var infoShown = false;
 
-var synth = new WebAudioTinySynth({quality:1, useReverb:0, debug:1});
+var synth = new WebAudioTinySynth({quality:1, useReverb:0, debug:0});
 
 if(!infoShown) {
   document.getElementById("switch").innerText = "Info";
@@ -193,7 +193,7 @@ function updateTracks(tracks) {
         var port = tracks.find(function(value, index, arr){ return value.socketID == track.socketID;}).midiOut;
         if(port == -1) {
           console.log("Panic to synth " + track.socketID);
-          synths[track.socketID].send([CC_CHANGE + channel, 123, 127]);
+          synth.send([CC_CHANGE + channel, 123, 127]);
         } else {
           midiOuts[port].send([CC_CHANGE + channel, 123, 127]);
         }

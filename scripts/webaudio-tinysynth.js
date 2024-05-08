@@ -7,7 +7,7 @@ function WebAudioTinySynthCore(target) {
       masterVol:  {type:Number, value:0.5, observer:"setMasterVol"},
       reverbLev:  {type:Number, value:0.3, observer:"setReverbLev"},
       quality:    {type:Number, value:1, observer:"setQuality"},
-      debug:      {type:Number, value:1},
+      debug:      {type:Number, value:0},
       src:        {type:String, value:null, observer:"loadMIDIfromSrc"},
       loop:       {type:Number, value:0},
       internalcontext: {type:Number, value:1},
