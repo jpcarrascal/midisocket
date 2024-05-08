@@ -15,7 +15,7 @@ html{
 body {
     user-select: none;
     -webkit-user-select: none;
-    color: grey;
+    color: #EEE;
     background-color: black;
     overflow: hidden;
     font-family: 'Montserrat', 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
@@ -77,6 +77,18 @@ body {
     font-size: 5em;
 }
 
+#select-program, #select-program-label {
+    font-size: 1.2em;
+    margin-bottom: -1em;
+}
+
+#keyboard {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
 @media screen and (orientation:portrait) {
   #keyboard {
     display: none;
@@ -88,7 +100,7 @@ body {
 
 @media screen and (orientation:landscape) {
   #keyboard {
-    display: block;
+    display: flex;
   }
   #rotate-me {
     display: none;
@@ -108,9 +120,10 @@ body {
   }
   
   ul {
-    height:18.875em;
+    height:18em;
     width:43em;
-    margin:5em auto;
+/*    margin:5em auto;*/
+    margin: 0;
     padding:1.5em 0 0 1em;
     position:relative;
     user-select: none;
@@ -126,7 +139,7 @@ body {
   }
   
   ul .white {
-    height:16em;
+    height:15em;
     width:3.75em;
     z-index:1;
     border-left:1px solid #bbb;
@@ -135,15 +148,7 @@ body {
     background: white;
     touch-action: manipulation;
   }
-  
-  ul .white:active {
-    border-top:px solid #777;
-    border-left:1px solid #999;
-    border-bottom:1px solid #999;
-    box-shadow:2px 0 3px rgba(0,0,0,0.1) inset,-5px 5px 20px rgba(0,0,0,0.2) inset,0 0 3px rgba(0,0,0,0.2);
-    background:linear-gradient(to bottom,#fff 0%,#e9e9e9 100%)
-  }
-  
+
   .black {
     height:8em;
     width:2em;
@@ -154,12 +159,23 @@ body {
     background: black;
     touch-action: manipulation;
   }
+
+  /*
+  ul .white:active {
+    border-top:px solid #777;
+    border-left:1px solid #999;
+    border-bottom:1px solid #999;
+    box-shadow:2px 0 3px rgba(0,0,0,0.1) inset,-5px 5px 20px rgba(0,0,0,0.2) inset,0 0 3px rgba(0,0,0,0.2);
+    background:linear-gradient(to bottom,#fff 0%,#e9e9e9 100%)
+  }
+
   
   .black:active {
     box-shadow:-1px -1px 2px rgba(255,255,255,0.5) inset,0 -2px 2px 3px rgba(0,0,0,0.6) inset,0 1px 2px rgba(0,0,0,0.5);
     background:linear-gradient(to right,#777 0%,#222 100%)
   }
-  
+  */
+
   .a,.g,.f,.d,.c {
     margin:0 0 0 -1em
   }
@@ -173,8 +189,8 @@ body {
   }
 
   .oct {
-    height:16em;
-    line-height: 16em;
+    height:15em;
+    line-height: 15em;
     background-color: #444;
     color: white;
     padding: .4em;
@@ -182,4 +198,8 @@ body {
 
   .oct:active {
     background-color: #666;
+  }
+
+  .active-key {
+    background-color: lime;
   }

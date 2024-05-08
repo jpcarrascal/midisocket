@@ -30,13 +30,14 @@ body {
 
 button {
     font-family: 'Montserrat', 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
-    width: 7em;
+    width: auto;
+    min-width: 7em;
     font-size: 1.2vw;
     height: 2em;
     background-color: #EEE;
     text-align: center;
-    padding-left: 0;
-    padding-right: 0;
+    padding-left: .5vw;
+    padding-right: .5vw;
     margin: .2vw;
 }
 

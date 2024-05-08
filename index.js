@@ -115,6 +115,8 @@ io.on('connection', (socket) => {
             var track = sessions.allocateAvailableParticipant(session, socket.id, initials);
             logger.info("#" + session + " @[" + initials + "] joined session on track " + track);
             socket.broadcast.to(session).emit('track joined', { initials: initials, track:track, socketid: socket.id });
+            // Send track info to track on connection
+            //io.to(socket.id).emit('track data', {track});
             socket.on('disconnect', () => {
                 var track2delete = sessions.getParticipantNumber(session, socket.id);
                 sessions.releaseParticipant(session, socket.id);
@@ -141,6 +143,11 @@ io.on('connection', (socket) => {
 
     socket.on('track notes', (msg) => { // Send all notes from track
         io.to(msg.socketid).emit('update track', msg);
+    });
+
+    socket.on('track data', (msg) => { // Send all notes from track
+        // io.to(msg.socketid).emit('track update', msg);
+        socket.broadcast.to(session).emit('track data', msg);
     });
 
     socket.on('veil-on', (msg) => {

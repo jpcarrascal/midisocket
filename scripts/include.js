@@ -6,6 +6,7 @@ const MAX_NUM_ROUNDS = config.MAX_NUM_ROUNDS;
 const NOTE_ON = 0x90;
 const NOTE_OFF = 0x80;
 const CC_CHANGE = 0xB0;
+const P_CHANGE = 0xC0;
 const NOTE_DURATION = 300;
 const DEFAULT_SESSION = 999;
 const EMPTY_COLOR = "#AAA";

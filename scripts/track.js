@@ -5,6 +5,7 @@ if(initials === "undefined") initials = null;
 setCookie("retries", 0, 1000);
 var retries = 0;
 var maxRetries = 3;
+var progSelect = document.getElementById("select-program");
 
 if(!initials && session) { // No initials == no socket connection
     document.getElementById("initials-form").style.display = "block";
@@ -23,11 +24,24 @@ if(!initials && session) { // No initials == no socket connection
         setCookie("retries", 0, 1000); retries = 0;
         console.log("Connected, my socketid:" + socket.id);
         mySocketID = socket.id;
+        // Switch to a random instrument
+        progSelect.value = progSelect.options[Math.floor(Math.random() * progSelect.options.length)].value;
+        setTimeout(() => {
+            progSelect.disabled = false;
+            progSelect.dispatchEvent(new Event("change"));
+        }, 500);
     });
     var body = document.querySelector("body");
     var noSleep = new NoSleep();
 
     /* ----------- Socket messages ------------ */
+
+    socket.on('track data', function(msg) {
+        if(msg.socketID == mySocketID)
+            console.log("My channel is: " + msg.channel);
+    });
+
+
     socket.on('stop', function(msg) {
         console.log("Remote stop! " + msg.socketID);
     });
@@ -71,6 +85,7 @@ if(!initials && session) { // No initials == no socket connection
             e.preventDefault();
             var note = calculateNote(this);
             socket.emit("midi message", {type: "ui", message: [NOTE_ON, note, 127], socketID: mySocketID});
+            this.style.backgroundColor = "lime";
         });
 
         addListenerMulti(key, "mouseup touchend mouseleave", function(e) {
@@ -79,6 +94,7 @@ if(!initials && session) { // No initials == no socket connection
                 e.preventDefault();
                 var note = calculateNote(this);
                 socket.emit("midi message", {type: "ui", message: [NOTE_OFF, note, 0], socketID: mySocketID});
+                this.style.backgroundColor = "";
             }
         });
         /*
@@ -113,6 +129,11 @@ if(!initials && session) { // No initials == no socket connection
             }
         });
 
+    });
+
+    progSelect.addEventListener("change", function(e) {
+        var program = parseInt(this.value);
+        socket.emit("midi message", {type: "ui", message: [P_CHANGE, program, 0], socketID: mySocketID});
     });
 
     function calculateNote(elem) {

@@ -48,6 +48,8 @@ socket.on('track joined', function(msg) {
   // This extracts the channel from the MIDI message
   tracks.push({socketID: msg.socketid, initials:msg.initials, ready: false, midiOut: null, midiIn: null, channel: null});
   updateTracks(tracks);
+  var channel = parseInt(tracks.find(function(value, index, arr){ return value.socketID == msg.socketid;}).channel);
+  socket.emit('track data', { socketID: msg.socketid, channel: channel});
 });
 
 socket.on('midi message', function(msg) {
@@ -65,7 +67,11 @@ socket.on('midi message', function(msg) {
   var initialsTd = document.getElementById("initials-"+msg.socketID);
   if(msg.type == "ui") {
     out.send([msg.message[0] + channel, msg.message[1], msg.message[2]]);
-    if(msg.message[0] != NOTE_OFF) flashElement(initialsTd, "lime");
+    if(msg.message[0] == NOTE_ON) flashElement(initialsTd, "lime");
+    if(msg.message[0] == P_CHANGE) {
+      var dropDown = document.getElementById("prog-"+msg.socketID);
+      dropDown.selectedIndex = msg.message[1];
+    };
   } else if(msg.type == "midi") {
     out.send(msg.message);
     if( (msg.message[0] & 0x0F) != NOTE_OFF ) flashElement(initialsTd, "lime");
