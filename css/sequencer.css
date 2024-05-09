@@ -14,10 +14,14 @@ body {
     user-select: none;
 }
 
+#hidden {
+    display: none;
+}
+
 #container {
     position: relative;
     top: 5vw;
-    display: flex;
+    display: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -53,13 +57,14 @@ select {
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    margin-top: 3vh;
+    margin-top: 0;
     background-color: #333;
     color: white;
     padding: 1vw;
-    font-size: 1.5vw;
+    padding-top: 2vw;
+    font-size: 2vw;
     position: absolute;
-    z-index: 1;
+    z-index: 10;
 }
 
 #list-container {
@@ -115,8 +120,8 @@ select {
 }
 
 #qrcode-wrapper {
-    height: 40vh;
-    width: 40vh;
+    height: 45vh;
+    width: 45vh;
     display: block;
     margin: 0;
     padding: 0;
@@ -124,8 +129,8 @@ select {
 }
 
 #qrcode {
-    height: 40vh;
-    width: 40vh;
+    height: 45vh;
+    width: 45vh;
     display: block;
     margin: 0;
 }
@@ -256,9 +261,20 @@ tr.synth-track {
     top: 0;
     left: 0;
     width: 100%;
-    padding: 1vw;
-    height: 3vw;
-    z-index: 3;
+    padding: 0;
+    height: 2.5vw;
+    z-index: 20;
+}
+
+#buttons {
+}
+
+button {
+    visibility: hidden;
+}
+
+#buttons:hover button {
+    visibility: visible;
 }
 
 #switch {
@@ -389,3 +405,36 @@ button.controls:hover {
 #color-magenta  { background-color: magenta; }
 #color-yellow   { background-color: yellow; }
 */
+
+
+
+/* ------------ Grid ------------ */
+
+#grid-container {
+    display: flex;
+    position: relative;
+    z-index: 2;
+}
+
+#grid {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    width: 100vw;
+    margin: auto;
+    background-color: black;
+}
+.grid-item {
+    /*flex: 0 0 21%;*/
+    /* flex-grow, flex-shrink and flex-basis */
+    flex-grow: 1;
+    flex-basis: 11%;
+
+    border: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+}

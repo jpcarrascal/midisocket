@@ -22,7 +22,7 @@ if(!initials && session) { // No initials == no socket connection
     var socket = io("", {query:{initials: initials, session: session}});
     socket.on("connect", () => {
         setCookie("retries", 0, 1000); retries = 0;
-        console.log("Connected, my socketid:" + socket.id);
+        console.log("Connected, my socketID:" + socket.id);
         mySocketID = socket.id;
         // Switch to a random instrument
         progSelect.value = progSelect.options[Math.floor(Math.random() * progSelect.options.length)].value;

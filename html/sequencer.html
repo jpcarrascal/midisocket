@@ -17,10 +17,13 @@
   <body>
 
     <div id="controls">
-      <button id="switch">✕</button>
-      <button id="veil-on-button">Session paused</button>            
-      <button id="veil-off-button">Session start</button>
-      <button id="panic-all">Panic</button>
+      <div id="buttons">
+        <button id="switch">✕</button>
+        <button id="grid-switch">Grid</button>
+        <button id="veil-on-button">Session paused</button>            
+        <button id="veil-off-button">Session start</button>
+        <button id="panic-all">Panic</button>
+      </div>
       <div id="hidden">
         <!--
           <select id="select-midi-in" class="select-midi-in">
@@ -28,7 +31,8 @@
         </select>
         -->
         <select id="select-midi-out" class="select-midi-out">
-          <option value="-1">Internal</option>
+          <option value="-1">Tiny Synth 1</option>
+          <option value="-2">Tiny Synth 2</option>
         </select>
         <select id="select-midi-channel">
           <option value="0">1</option>
@@ -51,27 +55,27 @@
       </div>
     </div>
 
-    <div id="container">
-
-      <div id="session-info">
-        <div class="session-info">
-          <span id="session-title">
-          Nombre de sesión: <span id="session-name"></span>
-          </span>
-        </div>
-        <div class="session-info">Comparte este enlace para invitar a la sesión:</div>
-        <div class="session-info">
-          <a id="track-url" target="_blank"></a>
-        </div>
-        <div class="session-info">
-          <button id="copy">Copiar enlace</button>
-        </div>
-        <div class="session-info">O escanea este código QR:</div>
-        <div class="session-info" id="qrcode-wrapper">
-
-        </div>
-        <textarea id="url-copy"></textarea>
+    <div id="session-info">
+      <div class="session-info">
+        <span id="session-title">
+        Nombre de sesión: <span id="session-name"></span>
+        </span>
       </div>
+      <div class="session-info">Comparte este enlace para invitar a la sesión:</div>
+      <div class="session-info">
+        <a id="track-url" target="_blank"></a>
+      </div>
+      <div class="session-info">
+        <button id="copy">Copiar enlace</button>
+      </div>
+      <div class="session-info">O escanea este código QR:</div>
+      <div class="session-info" id="qrcode-wrapper">
+
+      </div>
+      <textarea id="url-copy"></textarea>
+    </div>
+
+    <div id="container">
       
       <div id="list-container">
         <div id="list-title">Connected devices:</div>
@@ -88,6 +92,12 @@
 
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <div id="grid-container" style="display:flex">
+      <div id="grid">
+        
       </div>
     </div>
 

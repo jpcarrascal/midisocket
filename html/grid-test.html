@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        #grid {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            width: 100vh;
+            margin: auto;
+            background-color: black;
+        }
+        .grid-item {
+            /*flex: 0 0 21%;*/
+            /* flex-grow, flex-shrink and flex-basis */
+            flex-grow: 1;
+            flex-basis: 11%;
+
+            border: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        #addButton {
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+    </style>
+</head>
+<body>
+    <button id="addButton">Add div</button>
+    <div id="grid"></div>
+
+    <script>
+        var index = 0;
+        document.getElementById('addButton').addEventListener('click', function() {
+            var newDiv = document.createElement('div');
+            var numTiles = document.querySelectorAll('.grid-item').length;
+            newDiv.className = 'grid-item';
+            newDiv.innerText = index;
+            index++;
+            newDiv.addEventListener('click', function() {
+                this.parentNode.removeChild(this);
+            });
+            var colors = getRandomColorAndOptimalTextColor();
+            newDiv.style.backgroundColor = colors[0];
+            newDiv.style.color = colors[1];
+            document.getElementById('grid').appendChild(newDiv);
+            document.querySelectorAll('.grid-item').forEach(function(item, index) {
+                item.clientWidth = item.parentElement.clientWidth / numTiles + '%';
+                var w = item.clientWidth;
+                //item.style.flexBasis = 1/length + '%';
+                console.log(item.style.flexBasis)
+                item.style.height = w + 'px';
+            });
+        });
+
+        function getRandomColorAndOptimalTextColor() {
+            var colors = ['#e6194B', '#3cb44b', '#ffe119', '#4363d8',
+                        '#f58231', '#42d4f4', '#f032e6', '#fabed4',
+                        '#469990', '#dcbeff', '#9A6324', '#fffac8',
+                        '#800000', '#aaffc3', '#000075', '#a9a9a9']
+                        //'#ffffff', '#000000'];
+
+            var backgroundColor = colors[Math.floor(Math.random() * colors.length)]; // Select a random color from the array
+
+            // Convert the background color to RGB
+            var rgb = backgroundColor.slice(1).match(/.{2}/g).map(x => parseInt(x, 16));
+
+            // Calculate the luminance of the background color
+            var luminance = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255;
+
+            // If the luminance is greater than 0.5, the background color is light, so the text color should be black. Otherwise, it should be white.
+            var textColor = luminance > 0.5 ? 'black' : 'white';
+
+            return [backgroundColor, textColor];
+        }
+
+    </script>
+</body>
+</html>

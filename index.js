@@ -105,7 +105,7 @@ io.on('connection', (socket) => {
             var joinedParticipants = [];
             allParticipants.forEach(function(value, index, arr){
                 if(value !== "")
-                    joinedParticipants.push({track: value.track, socketid: value.socketid});
+                    joinedParticipants.push({track: value.track, socketID: value.socketID});
             });
             io.to(socket.id).emit('joined tracks', {tracks: joinedParticipants});
             */
@@ -114,13 +114,13 @@ io.on('connection', (socket) => {
         if(sessions.isReady(session)) {
             var track = sessions.allocateAvailableParticipant(session, socket.id, initials);
             logger.info("#" + session + " @[" + initials + "] joined session on track " + track);
-            socket.broadcast.to(session).emit('track joined', { initials: initials, track:track, socketid: socket.id });
+            socket.broadcast.to(session).emit('track joined', { initials: initials, track:track, socketID: socket.id });
             // Send track info to track on connection
             //io.to(socket.id).emit('track data', {track});
             socket.on('disconnect', () => {
                 var track2delete = sessions.getParticipantNumber(session, socket.id);
                 sessions.releaseParticipant(session, socket.id);
-                io.to(session).emit('track left', {track: track2delete, initials: initials, socketid: socket.id});
+                io.to(session).emit('track left', {track: track2delete, initials: initials, socketID: socket.id});
                 logger.info("#" + session + " @[" + initials + "] (" + socket.id + ") disconnected, clearing track " + track2delete);
             });
             // TODO: create session attributes. The line below should look like:
@@ -142,11 +142,11 @@ io.on('connection', (socket) => {
     });
 
     socket.on('track notes', (msg) => { // Send all notes from track
-        io.to(msg.socketid).emit('update track', msg);
+        io.to(msg.socketID).emit('update track', msg);
     });
 
     socket.on('track data', (msg) => { // Send all notes from track
-        // io.to(msg.socketid).emit('track update', msg);
+        // io.to(msg.socketID).emit('track update', msg);
         socket.broadcast.to(session).emit('track data', msg);
     });
 
