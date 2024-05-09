@@ -67,11 +67,11 @@ socket.on('track joined', function(msg) {
   //{ initials: initials, track:track, socketID: socket.id }
   //console.log("Track joined: " + msg.socketID);
   // This extracts the channel from the MIDI message
-  var channel = allocateTrack({socketID: msg.socketID, initials:msg.initials.toUpperCase(),
+  var channel = allocateTrack({socketID: msg.socketID, initials:msg.initials,
                               ready: false, midiOut: null, midiIn: null, channel: null});
   updateTracks();
-  addToGrid(msg.initials, msg.socketID);
-  socket.emit('track data', { socketID: msg.socketID, channel: channel});
+  var colors = addToGrid(msg.initials, msg.socketID);
+  socket.emit('track data', { socketID: msg.socketID, channel: channel, colors: colors });
 });
 
 socket.on('midi message', function(msg) {
@@ -80,11 +80,9 @@ socket.on('midi message', function(msg) {
   if(port == -1) {
     if(channel <= 15) {
       out = synth;
-      console.log("using synth1");
     } else {
       out = synth2;
       channel = channel - 16;
-      console.log("using synth2");
     }
   } else {
     out = midiOuts[port];
@@ -311,6 +309,7 @@ function addToGrid(initials, socketID) {
   newDiv.style.color = colors[1];
   document.getElementById('grid').appendChild(newDiv);
   resizeGrid();
+  return colors;
 }
 
 function removeFromGrid(socketID) {

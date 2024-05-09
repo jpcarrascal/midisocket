@@ -9,9 +9,12 @@ var progSelect = document.getElementById("select-program");
 
 if(!initials && session) { // No initials == no socket connection
     document.getElementById("initials-form").style.display = "block";
+    document.getElementById("initials").addEventListener("input", function(e) {
+        this.value = this.value.toUpperCase();
+    });
     document.getElementById("initials-form").addEventListener("submit", function(e) {
         e.preventDefault();
-        initials = document.getElementById("initials").value;
+        initials = document.getElementById("initials").value.toUpperCase();
         document.getElementById("initials-form").style.display = "none";
         document.location.href = "/track?session=" + session + "&initials=" + initials;
     });
@@ -37,8 +40,12 @@ if(!initials && session) { // No initials == no socket connection
     /* ----------- Socket messages ------------ */
 
     socket.on('track data', function(msg) {
-        if(msg.socketID == mySocketID)
+        if(msg.socketID == mySocketID) {
             console.log("My channel is: " + msg.channel);
+            console.log("My color is: " + msg.colors[0]);
+            document.querySelector("body").style.backgroundColor = msg.colors[0];
+            document.querySelector("body").style.color = msg.colors[1];
+        }
     });
 
 
