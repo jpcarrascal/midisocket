@@ -73,16 +73,12 @@
                         //'#ffffff', '#000000'];
 
             var backgroundColor = colors[Math.floor(Math.random() * colors.length)]; // Select a random color from the array
-
             // Convert the background color to RGB
             var rgb = backgroundColor.slice(1).match(/.{2}/g).map(x => parseInt(x, 16));
-
             // Calculate the luminance of the background color
             var luminance = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255;
-
             // If the luminance is greater than 0.5, the background color is light, so the text color should be black. Otherwise, it should be white.
             var textColor = luminance > 0.5 ? 'black' : 'white';
-
             return [backgroundColor, textColor];
         }
 
