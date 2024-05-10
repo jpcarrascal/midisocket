@@ -92,6 +92,7 @@ io.on('connection', (socket) => {
         }
         else {
             sessions.addSession(session, allocationMethod);
+            sessions.setAttribute(session, "isPlaying", false);
             logger.info("#" + session + " @SEQUENCER joined session.");
             sessions.setSeqID(session,socket.id);
             socket.on('disconnect', () => {
@@ -125,7 +126,13 @@ io.on('connection', (socket) => {
             });
             // TODO: create session attributes. The line below should look like:
             // io.to(socket.id).emit('session is playing', {playing: sessions.getAttribute(session, "isPlaying")});
-            io.to(socket.id).emit('session is playing', {playing: sessions.isPlaying(session)});
+            //io.to(socket.id).emit('session is playing', {playing: sessions.isPlaying(session)});
+            var sessionStarted = sessions.getAttribute(session, "isPlaying");
+            if(sessionStarted) {
+                io.to(socket.id).emit('veil-off', {socketID: socket.id});
+            } else {
+                io.to(socket.id).emit('veil-on', {socketID: socket.id});
+            }
         } else {
             io.to(socket.id).emit('exit session', {reason: "Session has not started..."});
         }
@@ -150,13 +157,15 @@ io.on('connection', (socket) => {
         socket.broadcast.to(session).emit('track data', msg);
     });
 
-    socket.on('veil-on', (msg) => {
+    socket.on('session pause', (msg) => {
         socket.broadcast.to(session).emit('veil-on', msg);
+        sessions.setAttribute(session, "isPlaying", false);
         logger.info("#" + session + " Veil ON.");
     });
 
-    socket.on('veil-off', (msg) => {
+    socket.on('session play', (msg) => {
         socket.broadcast.to(session).emit('veil-off', msg);
+        sessions.setAttribute(session, "isPlaying", true);
         logger.info("#" + session + " Veil OFF.");
     });
 

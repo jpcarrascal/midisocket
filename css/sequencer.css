@@ -281,7 +281,7 @@ button {
     visibility: visible;
 }
 
-#switch {
+#info-switch {
     width: 3em;
 }
 
@@ -304,7 +304,11 @@ button.controls:hover {
 }
 
 .playing {
-    color: lime;
+    background-color: lime;
+}
+
+.paused {
+    background-color: red;
 }
 
 #play, #stop {
@@ -441,5 +445,5 @@ button.controls:hover {
     justify-content: center;
     align-items: center;
     cursor: pointer;
-    border: .5em solid transparent;
+    border: .5em solid black;
 }

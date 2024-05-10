@@ -14,16 +14,22 @@ var infoShown = false;
 var synth = new WebAudioTinySynth({quality:1, useReverb:0, debug:0});
 var synth2 = new WebAudioTinySynth({quality:1, useReverb:0, debug:0});
 
+var pauseButton = document.getElementById("pause-button");
+var playButton = document.getElementById("play-button");
+var infoSwitch = document.getElementById("info-switch")
+var panicAll = document.getElementById("panic-all");
+var gridSwitch = document.getElementById("grid-switch");
+
 
 if(!infoShown) {
-  document.getElementById("switch").innerText = "Info";
+  infoSwitch.innerText = "Info";
   document.getElementById("session-info").style.display = "none";
 } else {
-  document.getElementById("switch").innerText = "✕";
+  infoSwitch.innerText = "✕";
   document.getElementById("session-info").style.display = "flex";
 }
 
-document.getElementById("switch").addEventListener("click", function(event){
+infoSwitch.addEventListener("click", function(event){
   if(infoShown) {
     this.innerText = "Info";
     document.getElementById("session-info").style.display = "none";
@@ -35,7 +41,7 @@ document.getElementById("switch").addEventListener("click", function(event){
 });
 
 
-document.getElementById("grid-switch").addEventListener("click", function(event){
+gridSwitch.addEventListener("click", function(event){
   console.log(document.getElementById("grid-container").style.display)
   if(document.getElementById("grid-container").style.display == "flex") {
     document.getElementById("grid-container").style.display = "none";
@@ -93,7 +99,8 @@ socket.on('midi message', function(msg) {
     if(msg.message[0] == NOTE_ON) {
       flashElement(initialsTd, "lime");
       var gridElem = document.getElementById("grid-item-"+msg.socketID);
-      flashElement(gridElem, "white");
+      console.log(gridElem.style.color);
+      flashElement(gridElem, gridElem.style.color);
     }
     if(msg.message[0] == P_CHANGE) {
       var dropDown = document.getElementById("prog-"+msg.socketID);
@@ -235,20 +242,18 @@ document.getElementById("copy").addEventListener("click", function(e) {
   console.log(p)
 });
 
-var veilOnButton = document.getElementById("veil-on-button");
-var veilOffButton = document.getElementById("veil-off-button");
-var panicAll = document.getElementById("panic-all");
-
-veilOnButton.addEventListener("click",function(event){
-  this.style.backgroundColor = "red";
-  console.log("Veil ON");
-  socket.emit('veil-on', { socketID: mySocketID });
+pauseButton.addEventListener("click",function(event){
+  this.classList.add("paused");
+  playButton.classList.remove("playing");
+  console.log("Veil ON, paused");
+  socket.emit('session pause', { socketID: mySocketID });
 });
 
-veilOffButton.addEventListener("click",function(event){
-  veilOnButton.style.backgroundColor = "#EEE";
-  console.log("Veil OFF");
-  socket.emit('veil-off', { socketID: mySocketID });
+playButton.addEventListener("click",function(event){
+  pauseButton.classList.remove("paused");
+  this.classList.add("playing");
+  console.log("Veil OFF, session started");
+  socket.emit('session play', { socketID: mySocketID });
 });
 
 panicAll.addEventListener("click",function(event){
@@ -261,7 +266,7 @@ panicAll.addEventListener("click",function(event){
 
 function flashElement(elem, color) {
   elem.style.borderColor = color;
-  setTimeout(function() { elem.style.borderColor = "transparent"; }, 200);
+  setTimeout(function() { elem.style.borderColor = "black"; }, 200);
 }
 
 function prog(ch, pg){
@@ -292,7 +297,35 @@ function allocateTrack(trackInfo) {
   tracks[ch] = trackInfo;
   return ch;
 }
+// --------------- Keyboard
 
+document.addEventListener(
+  "keydown",
+  (event) => {
+    const keyName = event.key;
+
+    if (keyName === "i") {
+      infoSwitch.click();
+      return;
+    }
+
+    if (keyName === "g") {
+      gridSwitch.click();
+      return;
+    }
+
+    if (keyName === " ") {
+      if(pauseButton.classList.contains("paused")) {
+        playButton.click();
+      } else {
+        pauseButton.click();
+      }
+      return;
+    }
+
+  },
+  false,
+);
 
 // --------------- Grid
 

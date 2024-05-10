@@ -6,6 +6,7 @@ class Session {
         this.maxNumRounds = maxNumRounds;
         this.allocationMethod = allocationMethod;
         this.playing = false;
+        this.attributes = Object();
     }
 
     allocateAvailableParticipant(socketID, initials) {
@@ -88,6 +89,14 @@ class Session {
         var i = this.getParticipantNumber(socketID);
         if(i>=0)
             this.participants[i].startCountingRounds();
+    }
+
+    setAttribute(k, v) {
+        this.attributes[k] = v;
+    }
+
+    getAttribute(k) {
+        return this.attributes[k];
     }
 }
 
@@ -231,6 +240,18 @@ class AllSessions {
         var sessionId = this.findSession(sessionName);
         if(sessionId == -1) return -1;
         return this.sessions[sessionId].incrementAllCounters();
+    }
+
+    setAttribute(sessionName, k, v) {
+        var sessionId = this.findSession(sessionName);
+        if(sessionId == -1) return -1;
+        return this.sessions[sessionId].setAttribute(k, v);
+    }
+
+    getAttribute(sessionName, k) {
+        var sessionId = this.findSession(sessionName);
+        if(sessionId == -1) return -1;
+        return this.sessions[sessionId].getAttribute(k);
     }
 }
 
