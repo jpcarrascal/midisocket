@@ -9,6 +9,7 @@ var progSelect = document.getElementById("select-program");
 
 if(!initials && session) { // No initials == no socket connection
     document.getElementById("initials-form").style.display = "block";
+    document.getElementById("veil").style.display = "none";
     document.getElementById("initials").addEventListener("input", function(e) {
         this.value = this.value.toUpperCase();
     });

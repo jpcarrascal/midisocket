@@ -92,7 +92,8 @@ socket.on('midi message', function(msg) {
     out.send([msg.message[0] + channel, msg.message[1], msg.message[2]]);
     if(msg.message[0] == NOTE_ON) {
       flashElement(initialsTd, "lime");
-      flashElement(document.getElementById("grid-item-"+msg.socketID), "white");
+      var gridElem = document.getElementById("grid-item-"+msg.socketID);
+      flashElement(gridElem, "white");
     }
     if(msg.message[0] == P_CHANGE) {
       var dropDown = document.getElementById("prog-"+msg.socketID);
@@ -121,6 +122,7 @@ function updateTracks() {
       var newRow = document.createElement("tr");
       var newCell = document.createElement("td");
       newCell.id = "initials-"+track.socketID;
+      newCell.classList.add("initials-td");
       newRow.classList.add("track-item");
       newRow.id = "track-" + index;
       newCell.innerText = track.initials;
@@ -258,9 +260,8 @@ panicAll.addEventListener("click",function(event){
 });
 
 function flashElement(elem, color) {
-  var origColor = elem.style.backgroundColor;
-  elem.style.backgroundColor = color;
-  setTimeout(function() { elem.style.backgroundColor = origColor; }, 200);
+  elem.style.borderColor = color;
+  setTimeout(function() { elem.style.borderColor = "transparent"; }, 200);
 }
 
 function prog(ch, pg){
@@ -301,9 +302,6 @@ function addToGrid(initials, socketID) {
   newDiv.className = 'grid-item';
   newDiv.innerText = initials;
   newDiv.id = "grid-item-" + socketID;
-  newDiv.addEventListener('click', function() {
-      this.parentNode.removeChild(this);
-  });
   var colors = getRandomColorAndOptimalTextColor();
   newDiv.style.backgroundColor = colors[0];
   newDiv.style.color = colors[1];
@@ -317,6 +315,10 @@ function removeFromGrid(socketID) {
   if(gridItem) gridItem.remove();
   resizeGrid();
 }
+
+window.addEventListener('resize', function(event) {
+  resizeGrid();
+}, true);
 
 function resizeGrid() {
   document.querySelectorAll('.grid-item').forEach(function(item, index) {

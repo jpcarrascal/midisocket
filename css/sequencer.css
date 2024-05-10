@@ -175,6 +175,10 @@ select {
     font-weight: 100;
 }
 
+.initials-td {
+    border: .2em solid transparent;
+}
+
 .name-header, .step-header {
     font-size: 2vw;
     font-weight: 100;
@@ -437,4 +441,5 @@ button.controls:hover {
     justify-content: center;
     align-items: center;
     cursor: pointer;
+    border: .5em solid transparent;
 }
