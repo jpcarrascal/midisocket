@@ -41,15 +41,11 @@ infoSwitch.addEventListener("click", function(event){
 });
 
 
-gridSwitch.addEventListener("click", function(event){
-  console.log(document.getElementById("grid-container").style.display)
-  if(document.getElementById("grid-container").style.display == "flex") {
-    document.getElementById("grid-container").style.display = "none";
-    document.getElementById("container").style.display = "flex";
-  } else {
-    document.getElementById("container").style.display = "none";
-    document.getElementById("grid-container").style.display = "flex";
-  }
+gridSwitch.addEventListener("click", function(event) {
+  document.getElementById("grid-container").classList.toggle("display-flex");
+  document.getElementById("grid-container").classList.toggle("display-none");
+  document.getElementById("container").classList.toggle("display-flex");
+  document.getElementById("container").classList.toggle("display-none");
 });
 
 

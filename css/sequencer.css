@@ -20,8 +20,9 @@ body {
 
 #container {
     position: relative;
-    top: 5vw;
-    display: none;
+    top: 2.5vw;
+    /* controlled by .display-flex and .display-none */
+    /* display: flex; */
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -46,6 +47,7 @@ button {
 }
 
 select {
+    height: 2em;
     font-size: 1.2vw;
     margin: .2vw;
 }
@@ -271,14 +273,16 @@ tr.synth-track {
 }
 
 #buttons {
+    display: flex;
+    flex-direction: row;
 }
 
-button {
-    visibility: hidden;
-}
-
-#buttons:hover button {
+#buttons:hover .hover-show {
     visibility: visible;
+}
+
+.hover-show {
+    visibility: hidden;
 }
 
 #info-switch {
@@ -318,6 +322,14 @@ button.controls:hover {
 }
 
 .hidden {
+    display: none;
+}
+
+.display-flex {
+    display: flex;
+}
+
+.display-none {
     display: none;
 }
 
@@ -419,7 +431,8 @@ button.controls:hover {
 /* ------------ Grid ------------ */
 
 #grid-container {
-    display: flex;
+    /* controlled by .display-flex and .display-none */
+    /* display: flex; */
     position: relative;
     z-index: 2;
 }

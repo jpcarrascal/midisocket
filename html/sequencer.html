@@ -18,40 +18,41 @@
 
     <div id="controls">
       <div id="buttons">
-        <button id="info-switch">✕</button>
-        <button id="grid-switch">Grid</button>
-        <button id="pause-button" class="paused">Session pause</button>
-        <button id="play-button">Session play</button>
-        <button id="panic-all">Panic</button>
-      </div>
-      <div id="hidden">
-        <!--
+        <button class="hover-show" id="info-switch">✕</button>
+        <button class="hover-show" id="grid-switch">Grid</button>
+        <button class="hover-show" id="pause-button" class="paused">Session pause</button>
+        <button class="hover-show" id="play-button">Session play</button>
+        <button class="hover-show" id="panic-all">Panic</button>
+
+        <div class="hover-show">
+          In:
           <select id="select-midi-in" class="select-midi-in">
-          <option value="-1">None</option>
-        </select>
-        -->
-        <select id="select-midi-out" class="select-midi-out">
-          <option value="-1">Tiny Synth 1</option>
-          <option value="-2">Tiny Synth 2</option>
-        </select>
-        <select id="select-midi-channel">
-          <option value="0">1</option>
-          <option value="1">2</option>
-          <option value="2">3</option>
-          <option value="3">4</option>
-          <option value="4">5</option>
-          <option value="5">6</option>
-          <option value="6">7</option>
-          <option value="7">8</option>
-          <option value="8">9</option>
-          <option value="9">10</option>
-          <option value="10">11</option>
-          <option value="11">12</option>
-          <option value="12">13</option>
-          <option value="13">14</option>
-          <option value="14">15</option>
-          <option value="15">16</option>          
-        </select>
+            <option value="-1">None</option>
+          </select>
+          Out:
+          <select id="select-midi-out" class="select-midi-out">
+            <option value="-1">Tiny Synth 1</option>
+            <option value="-2">Tiny Synth 2</option>
+          </select>
+          <select id="select-midi-channel">
+            <option value="0">1</option>
+            <option value="1">2</option>
+            <option value="2">3</option>
+            <option value="3">4</option>
+            <option value="4">5</option>
+            <option value="5">6</option>
+            <option value="6">7</option>
+            <option value="7">8</option>
+            <option value="8">9</option>
+            <option value="9">10</option>
+            <option value="10">11</option>
+            <option value="11">12</option>
+            <option value="12">13</option>
+            <option value="13">14</option>
+            <option value="14">15</option>
+            <option value="15">16</option>          
+          </select>
+        </div>
       </div>
     </div>
 
@@ -75,7 +76,7 @@
       <textarea id="url-copy"></textarea>
     </div>
 
-    <div id="container">
+    <div id="container" class="display-flex">
       
       <div id="list-container">
         <div id="list-title">Connected devices:</div>
@@ -95,7 +96,7 @@
       </div>
     </div>
 
-    <div id="grid-container" style="display:flex">
+    <div id="grid-container" class="display-none">
       <div id="grid">
         
       </div>
