@@ -30,6 +30,7 @@ if(!initials && session) { // No initials == no socket connection
         mySocketID = socket.id;
         // Switch to a random instrument
         progSelect.value = progSelect.options[Math.floor(Math.random() * progSelect.options.length)].value;
+        //progSelect.value = -1;
         setTimeout(() => {
             progSelect.disabled = false;
             progSelect.dispatchEvent(new Event("change"));

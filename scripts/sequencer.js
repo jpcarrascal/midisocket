@@ -90,7 +90,7 @@ socket.on('midi message', function(msg) {
     out = midiOuts[port];
   }
   var initialsTd = document.getElementById("initials-"+msg.socketID);
-  if(msg.type == "ui") {
+  if(msg.type == "ui" || msg.type == "midi") {
     out.send([msg.message[0] + channel, msg.message[1], msg.message[2]]);
     if(msg.message[0] == NOTE_ON) {
       flashElement(initialsTd, "lime");
