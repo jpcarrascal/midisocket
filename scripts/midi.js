@@ -2,8 +2,8 @@ var midiOuts = [];
 var midiIns = [];
 
 function listDevices(midi) {
-    var outList = document.getElementById("select-midi-out");
-    var inList  = document.getElementById("select-midi-in");
+    var outLists = document.querySelectorAll(".select-midi-out");
+    var inLists  = document.querySelectorAll(".select-midi-in");
     var outputs = midi.outputs.values();
     var inputs  = midi.inputs.values();
     var numOuts = 0;
@@ -12,7 +12,7 @@ function listDevices(midi) {
 
     for (var output = outputs.next(); output && !output.done; output = outputs.next()) {
         midiOuts[output.value.id] = midi.outputs.get(output.value.id);
-        document.querySelectorAll(".select-midi-out").forEach(function(elem) {
+        outLists.forEach(function(elem) {
             var option = document.createElement("option");
             option.value = output.value.id;
             option.text = output.value.name;    
@@ -26,7 +26,7 @@ function listDevices(midi) {
 
     for (var input = inputs.next(); input && !input.done; input = inputs.next()) {
         midiIns[input.value.id] = midi.inputs.get(input.value.id);
-        document.querySelectorAll(".select-midi-in").forEach(function(elem) {
+        inLists.forEach(function(elem) {
             var option = document.createElement("option");
             option.value = input.value.id;
             option.text = input.value.name;    
@@ -48,13 +48,6 @@ function listDevices(midi) {
     }
 }
  
-
-var MIDIout = null;
-var MIDIin = null;
-var MIDIoutIndex = 0;
-// Replace this with the right index:
-var MIDIinIndex = 193811423;
-
 if (navigator.requestMIDIAccess) {
     console.log('Browser supports MIDI. Yay!');
     navigator.requestMIDIAccess().then(success, failure);
@@ -62,9 +55,6 @@ if (navigator.requestMIDIAccess) {
 
 function success(midi) {
     listDevices(midi);
-    //MIDIout = midi.outputs.get(MIDIoutIndex);
-    //MIDIin = midi.inputs.get(MIDIinIndex);
-    //MIDIin.onmidimessage = processMIDIin;
     midi.onstatechange = (event) => {
         listDevices(midi);
     };

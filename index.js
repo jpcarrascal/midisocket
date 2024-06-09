@@ -179,8 +179,26 @@ io.on('connection', (socket) => {
     });
 
     socket.on('midi message', (msg) => {
+        const messageType = msg.message[0] >> 4;
+        var type = 'OTHER';
+        switch (messageType) {
+          case 0x8:
+            type = 'NOTE_OFF'; break;
+          case 0x9:
+            type = 'NOTE_ON'; break;
+          case 0xB:
+            type = 'CC_CHANGE'; break;
+          case 0xC:
+            type = 'P_CHANGE'; break;
+        case 0xD:
+            type = 'PRESSURE'; break;
+          case 0xE:
+            type = 'PITCH_BEND'; break;
+          default:
+            type = 'OTHER';
+        }
         io.to(session).emit('midi message', msg);
-        logger.info("#" + session + " (" + msg.socketID + ") MIDI message (" + msg.type + ")");
+        logger.info("#" + session + " (" + msg.socketID + ") MIDI message (" + type + " from " + msg.source + ")");
     });
 
     /*

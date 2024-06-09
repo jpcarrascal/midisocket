@@ -42,80 +42,40 @@
       -->
       <div id="keyboard">
         <div>
-          <!--
+          
           <select id="select-midi-in" class="select-midi-in">
             <option value="-1">Screen keyboard</option>
           </select>
-          -->
-          <span id="select-program-label">Instrumento: </span>
+
+
+          <span id="select-midi-channel-label">Channel:</span>
+          <select id="select-midi-channel">
+            <option value="-1" disabled="disabled">Keep/All</option>
+            <option value="0">1</option>
+            <option value="1">2</option>
+            <option value="2">3</option>
+            <option value="3">4</option>
+            <option value="4">5</option>
+            <option value="5">6</option>
+            <option value="6">7</option>
+            <option value="7">8</option>
+            <option value="8">9</option>
+            <option value="9">10</option>
+            <option value="10">11</option>
+            <option value="11">12</option>
+            <option value="12">13</option>
+            <option value="13">14</option>
+            <option value="14">15</option>
+            <option value="15">16</option>
+          </select>
+
+          
+          <span id="select-program-label">Program Change: </span>
           <select id="select-program" disabled>
             <option value="-1">MIDI</option>
-            <option value="0">Piano</option>
-            <option value="4">Piano eléctrico</option>
-            <option value="6">Clavecín</option>
-            <option value="8">Celesta</option>
-            <option value="10">Caja de música</option>
-            <option value="12">Marimba</option>
-            <option value="13">Xilófono</option>
-            <option value="14">Campanas tubulares</option>
-            <option value="16">Órgano</option>
-            <option value="19">órgano de iglesia</option>
-            <option value="23">Acordeón</option>
-            <option value="24">Guitarra clásica</option>
-            <option value="25">Guitarra eléctrica</option>
-            <option value="28">Guitarra eléctrica (palm mute)</option>
-            <option value="34">Bajo eléctrico</option>
-            <option value="37">Bajo slap</option>
-            <option value="39">Bajo sintético</option>
-            <option value="40">Violín</option>
-            <option value="42">Cello</option>
-            <option value="44">Sección de cuerdas (trémolo)</option>
-            <option value="45">Cuerdas pizzicato</option>
-            <option value="46">Arpa</option>
-            <option value="47">Timbales</option>
-            <option value="48">Sección de cuerdas</option>
-            <option value="51">Cuerdas sintéticas</option>
-            <option value="55">Golpe de orquesta</option>
-            <option value="56">Trompeta</option>
-            <option value="58">Tuba</option>
-            <option value="61">Sección de bronces</option>
-            <option value="63">Bronces sintéticos</option>
-            <option value="66">Saxofón</option>
-            <option value="68">Oboe</option>
-            <option value="73">Flauta</option>
-            <option value="79">Ocarina</option>
-            <option value="81">Sinte 2</option>
-            <option value="83">Sinte 4</option>
-            <option value="84">Sinte 5</option>
-            <option value="86">Sinte 7 (fifths)</option>
-            <option value="87">Sinte 8</option>
-            <option value="90">Pad 3 (polysynth)</option>
-            <option value="95">Pad 8 (sweep)</option>
-            <option value="96">FX 1 (rain)</option>
-            <option value="97">FX 2 (soundtrack)</option>
-            <option value="98">FX 3 (crystal)</option>
-            <option value="104">Sítara</option>
-            <option value="105">Banjo</option>
-            <option value="106">Shamisen</option>
-            <option value="107">Koto</option>
-            <option value="109">Gaita escocesa</option>
-            <option value="114">Tambor de acero</option>
-            <option value="115">Bloque de madera</option>
-            <option value="116">Tambor Taiko</option>
-            <option value="117">Tambor melódico</option>
-            <option value="118">Tambor sintético</option>
-            <option value="119">Platillo inverso</option>
-            <option value="120">Ruidillo</option>
-            <option value="121">Respiración</option>
-            <option value="122">Playa</option>
-            <option value="123">Pajarillo / R2D2</option>
-            <option value="124">Teléfono</option>
-            <option value="125">Helicóptero</option>
-            <option value="126">Aplauso</option>
-            <option value="127">Disparo</option>
           </select>
         </div>
-        <ul class="set" id="keys">
+        <ul class="set display-keys" id="keys">
           <li class="oct down" id="oct-down">◀</li>
           <li class="key white e"  note="0" octave="5"></li>
           <li class="key black ds" note="1" octave="5"></li>
@@ -149,8 +109,8 @@
     <script src="scripts/include.js"></script>
     <!-- <script src="scripts/webaudio-controls.js"></script> -->
     <script src="scripts/webaudio-tinysynth.js"></script>
+    <script src="scripts/midi.js"></script>
     <script src="scripts/track.js"></script>
-    <script src="scripts/midi-track.js"></script>
 
   </body>
 </html>

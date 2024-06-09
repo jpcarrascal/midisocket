@@ -69,8 +69,10 @@ socket.on('track joined', function(msg) {
   //{ initials: initials, track:track, socketID: socket.id }
   //console.log("Track joined: " + msg.socketID);
   // This extracts the channel from the MIDI message
-  var channel = allocateTrack({socketID: msg.socketID, initials:msg.initials,
+  var trackIndex = allocateTrack({socketID: msg.socketID, initials:msg.initials,
                               ready: false, midiOut: null, midiIn: null, channel: null});
+  var channel = trackIndex%16;
+  console.log("Track index: " + trackIndex + " Channel: " + channel);
   updateTracks();
   var colors = addToGrid(msg.initials, msg.socketID);
   socket.emit('track data', { socketID: msg.socketID, channel: channel, colors: colors });
@@ -78,7 +80,10 @@ socket.on('track joined', function(msg) {
 
 socket.on('midi message', function(msg) {
   var port = tracks[tracks.findBysocketId(msg.socketID)].midiOut;
-  var channel = tracks[tracks.findBysocketId(msg.socketID)].channel;
+  var channel = parseInt(tracks[tracks.findBysocketId(msg.socketID)].channel);
+  if(channel != -1) {
+    msg.message = replaceMidiChannel(msg.message, channel);
+  }
   if(port == -1) {
     if(channel <= 15) {
       out = synth;
@@ -90,22 +95,13 @@ socket.on('midi message', function(msg) {
     out = midiOuts[port];
   }
   var initialsTd = document.getElementById("initials-"+msg.socketID);
-  if(msg.type == "ui" || msg.type == "midi") {
-    out.send([msg.message[0] + channel, msg.message[1], msg.message[2]]);
-    if(msg.message[0] == NOTE_ON) {
-      flashElement(initialsTd, "lime");
-      var gridElem = document.getElementById("grid-item-"+msg.socketID);
-      console.log(gridElem.style.color);
-      flashElement(gridElem, gridElem.style.color);
-    }
-    if(msg.message[0] == P_CHANGE) {
-      var dropDown = document.getElementById("prog-"+msg.socketID);
-      dropDown.selectedIndex = msg.message[1];
-    };
-  } else if(msg.type == "midi") {
-    out.send(msg.message);
-    if( (msg.message[0] & 0x0F) != NOTE_OFF ) flashElement(initialsTd, "lime");
-  }
+  out.send(msg.message);
+  debugMidiMessage(msg.message);
+  if( (msg.message[0] & 0xF0) == P_CHANGE ) {
+    var dropDown = document.getElementById("prog-"+msg.socketID);
+    dropDown.selectedIndex = msg.message[1];
+  };
+  flashElement(initialsTd, "lime");
 });
 
 socket.on('track left', function(msg) {
@@ -144,7 +140,6 @@ function updateTracks() {
 
       midiOutSelector.addEventListener("change", function(event){
         track.midiOut = this.value;
-        console.log(tracks)
         if(this.value == "-1") {
           /// ***
           function pg(event) { 
@@ -182,11 +177,10 @@ function updateTracks() {
       newCell = document.createElement("td");
       var channelSelector = document.getElementById("select-midi-channel").cloneNode(true);
       channelSelector.setAttribute("id","select-midi-channel-"+index);
-      channelSelector.selectedIndex = index>15?index-16:index;
-      track.channel = index;
+      channelSelector.value = -1;
+      track.channel = -1;
       channelSelector.addEventListener("change", function(event){
         tracks[tracks.findBysocketId(track.socketID)].channel = this.value;
-        console.log(tracks);
       });
       newCell.appendChild(channelSelector);
       newRow.appendChild(newCell);
@@ -221,7 +215,6 @@ document.getElementById("session-name").innerText = session;
 var info = document.getElementById("session-info");
 var urlTmp = document.location.origin;
 //urlTmp = urlTmp.replace("localhost","jina-5.local");
-console.log(urlTmp)
 var trackURL = urlTmp + "/track?session="+session;
 let qrcodeURL = "https://qrcode.azurewebsites.net/qr?width=300&margin=1&string=" + encodeURIComponent(trackURL);
 var qrcode = document.createElement("img");
@@ -234,8 +227,7 @@ document.getElementById("url-copy").innerText = trackURL;
 document.getElementById("copy").addEventListener("click", function(e) {
   copyURL("url-copy");
   this.innerText = "Copiado!";
-  p=setTimeout( function() { document.getElementById("copy").innerText = "Copiar enlace" }, 2000);
-  console.log(p)
+  p = setTimeout( function() { document.getElementById("copy").innerText = "Copiar enlace" }, 2000);
 });
 
 pauseButton.addEventListener("click",function(event){
@@ -261,14 +253,14 @@ panicAll.addEventListener("click",function(event){
 });
 
 function flashElement(elem, color) {
-  elem.style.borderColor = color;
-  setTimeout(function() { elem.style.borderColor = "black"; }, 200);
+  setTimeout(function() { elem.style.borderColor = color;
+    setTimeout(function() { elem.style.borderColor = "black"; }, 200);
+  }, 0);
 }
 
 function prog(ch, pg){
   if(ch == undefined) ch = 0;
   var msg = [0xc0 + parseInt(ch), pg];
-  console.log(msg);
   console.log("Changing program on ch " + ch + " to:" + pg);
   synth.send(msg);
 }
@@ -283,15 +275,15 @@ async function updateProgramList(synth, dropdownElem){
 }
 
 function allocateTrack(trackInfo) {
-  var ch = tracks.indexOf(null);
-  if(ch == -1) {
-    ch = tracks.length;
+  var trackIndex = tracks.indexOf(null);
+  if(trackIndex == -1) {
+    trackIndex = tracks.length;
     tracks.push(trackInfo);
   } else {
-    tracks[ch] = trackInfo;
+    tracks[trackIndex] = trackInfo;
   }
-  tracks[ch] = trackInfo;
-  return ch;
+  tracks[trackIndex] = trackInfo;
+  return trackIndex;
 }
 // --------------- Keyboard
 
@@ -354,7 +346,6 @@ function resizeGrid() {
     //item.clientWidth = item.parentElement.clientWidth / numTiles + '%';
     var w = item.clientWidth;
     //item.style.flexBasis = 1/length + '%';
-    console.log(item.style.flexBasis)
     item.style.height = w + 'px';
   });
 }
