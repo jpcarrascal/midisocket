@@ -145,7 +145,7 @@ if(!initials && session) { // No initials == no socket connection
         var program = parseInt(this.value);
         socket.emit("midi message", {type: "ui", message: [P_CHANGE, program, 0], socketID: mySocketID});
     });
-
+/*
     midiInSelect.addEventListener("change", function(e) {
         var index = parseInt(this.value);
         if(index != -1) {
@@ -155,7 +155,7 @@ if(!initials && session) { // No initials == no socket connection
         }
         //socket.emit("midi message", {type: "ui", message: [MIDI_IN, midiInIndex, 0], socketID: mySocketID});
     });
-
+*/
     function calculateNote(elem) {
         var note = parseInt(elem.getAttribute("note"));
         var octave = parseInt(elem.getAttribute("octave"));
