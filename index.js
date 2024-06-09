@@ -180,7 +180,7 @@ io.on('connection', (socket) => {
 
     socket.on('midi message', (msg) => {
         io.to(session).emit('midi message', msg);
-        logger.info("#" + session + " (" + msg.socketID + ") midi message (" + msg.type + ")");
+        logger.info("#" + session + " (" + msg.socketID + ") MIDI message (" + msg.type + ")");
     });
 
     /*

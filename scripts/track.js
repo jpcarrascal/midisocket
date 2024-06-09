@@ -6,6 +6,7 @@ setCookie("retries", 0, 1000);
 var retries = 0;
 var maxRetries = 3;
 var progSelect = document.getElementById("select-program");
+var midiInSelect = document.getElementById("select-midi-in");
 
 if(!initials && session) { // No initials == no socket connection
     document.getElementById("initials-form").style.display = "block";
@@ -143,6 +144,16 @@ if(!initials && session) { // No initials == no socket connection
     progSelect.addEventListener("change", function(e) {
         var program = parseInt(this.value);
         socket.emit("midi message", {type: "ui", message: [P_CHANGE, program, 0], socketID: mySocketID});
+    });
+
+    midiInSelect.addEventListener("change", function(e) {
+        var index = parseInt(this.value);
+        if(index != -1) {
+            document.getElementById("keys").style.display = "none";
+        } else {
+            document.getElementById("keys").style.display = "block";
+        }
+        //socket.emit("midi message", {type: "ui", message: [MIDI_IN, midiInIndex, 0], socketID: mySocketID});
     });
 
     function calculateNote(elem) {
