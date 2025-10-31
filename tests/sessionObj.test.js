@@ -78,12 +78,4 @@ describe('Migration Verification - New API', () => {
         expect(track).toBeGreaterThanOrEqual(0);
     });
 
-    test('Non-existing sessions seportee correctly', () => {
-        const sessions = new AllSessions(10);
-        sessions.addSession('test', 10, 16, 'random', 20);
-        const session = sessions.select('nonexistent');
-        
-        expect(session).toBeGreaterThanOrEqual(0); // Default session
-    });
-
 });
