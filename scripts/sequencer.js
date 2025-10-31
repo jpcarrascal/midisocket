@@ -329,7 +329,7 @@ function onGetTrackAssignment(data) {
         app.socket.emit('track-assignment', assignmentData);
         
         // Also send track data for compatibility
-        const colors = ['#667eea', '#ffffff'];
+        const colors = ['#888888', '#ffffff'];
         app.socket.emit('track data', {
             socketID: data.socketID,
             channel: routing ? routing.channel : 0,
