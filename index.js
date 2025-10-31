@@ -56,9 +56,7 @@ app.get('/track', (req, res) => {
 });
 
 app.get('/favicon.ico', (req, res) => {
-    // req.query.seq
-    var page = '/images/favicon.ico';
-    res.sendFile(__dirname + page);
+    res.status(204).end(); // No content for missing favicon
 });
 
 app.get('/latency', (req, res) => {
@@ -114,25 +112,6 @@ io.on('connection', (socket) => {
                 });
                 sessions.select(session).clearSession();
             });
-            
-            // Send current session state to sequencer
-            const currentSession = sessions.select(session);
-            const allParticipants = currentSession.getAllParticipants();
-            const connectedTracks = [];
-            
-            allParticipants.forEach((participant, index) => {
-                if (participant && participant.socketID) {
-                    connectedTracks.push({
-                        track: index,
-                        socketID: participant.socketID,
-                        initials: participant.initials
-                    });
-                }
-            });
-            
-            if (connectedTracks.length > 0) {
-                io.to(socket.id).emit('existing tracks', { tracks: connectedTracks });
-            }
         }
     } else {
         // Handle track connection
