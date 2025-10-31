@@ -95,7 +95,7 @@ html {
 }
 
 .control-btn {
-    background: linear-gradient(135deg, #4299e1, #3182ce);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     border: none;
     padding: 10px 16px;
@@ -303,7 +303,7 @@ html {
 }
 
 #routing-table th {
-    background: linear-gradient(135deg, #4299e1, #3182ce);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     padding: 15px 12px;
     text-align: left;
@@ -334,7 +334,7 @@ html {
 /* Track Status Indicators */
 .track-number {
     display: inline-block;
-    background: #4299e1;
+    background: #667eea;
     color: white;
     padding: 4px 8px;
     border-radius: 4px;
@@ -390,8 +390,8 @@ html {
 
 .routing-select:focus {
     outline: none;
-    border-color: #4299e1;
-    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .routing-select:disabled {
@@ -489,7 +489,7 @@ html {
 }
 
 #copy-url {
-    background: #4299e1;
+    background: #667eea;
     color: white;
     border: none;
     padding: 8px 12px;
