@@ -1,367 +1,681 @@
-var code = "seq";
-var tracks = new Array(32).fill(null);
-tracks.findBysocketId = function(sid) {
-  var index = -1;
-  this.forEach(function(v, i, a) {
-    if(v == null) return;
-    if(v.socketID == sid) index = i;
-  });
-  return index;
+/**
+ * MIDI Routing Sequencer
+ * Main application logic for the routing matrix interface
+ */
+
+// Global application state
+let app = {
+    // Core components
+    midiDeviceManager: null,
+    routingMatrix: null,
+    midiRouter: null,
+    socket: null,
+    
+    // Session info
+    sessionName: null,
+    isPlaying: false,
+    
+    // UI elements
+    elements: {},
+    
+    // Statistics
+    lastStatsUpdate: 0,
+    statsUpdateInterval: 1000 // Update every second
+};
+
+// Initialize application when page loads
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('Initializing MIDI Routing Sequencer...');
+    
+    // Get DOM elements
+    initializeElements();
+    
+    // Initialize core components
+    await initializeMidi();
+    
+    // Initialize socket connection
+    initializeSocket();
+    
+    // Set up event listeners
+    setupEventListeners();
+    
+    // Update UI
+    updateSessionInfo();
+    updateTrackUrl();
+    
+    console.log('MIDI Routing Sequencer initialized successfully');
+});
+
+/**
+ * Initialize DOM element references
+ */
+function initializeElements() {
+    app.elements = {
+        // Session info
+        sessionName: document.getElementById('session-name'),
+        sessionStatus: document.getElementById('session-status'),
+        midiStatus: document.getElementById('midi-status'),
+        
+        // Controls
+        playButton: document.getElementById('play-button'),
+        pauseButton: document.getElementById('pause-button'),
+        panicAllButton: document.getElementById('panic-all'),
+        infoToggle: document.getElementById('info-toggle'),
+        statsToggle: document.getElementById('stats-toggle'),
+        
+        // Panels
+        devicePanel: document.getElementById('device-panel'),
+        statsPanel: document.getElementById('stats-panel'),
+        deviceStatus: document.getElementById('device-status'),
+        deviceList: document.getElementById('device-list'),
+        
+        // Routing matrix
+        routingTable: document.getElementById('routing-table'),
+        routingTableBody: document.getElementById('routing-table-body'),
+        noTracksMessage: document.getElementById('no-tracks-message'),
+        trackUrl: document.getElementById('track-url'),
+        copyUrlButton: document.getElementById('copy-url'),
+        
+        // Statistics
+        statActiveTracks: document.getElementById('stat-active-tracks'),
+        statRoutedTracks: document.getElementById('stat-routed-tracks'),
+        statMessagesRouted: document.getElementById('stat-messages-routed'),
+        statRoutingErrors: document.getElementById('stat-routing-errors'),
+        
+        // Messages
+        errorMessage: document.getElementById('error-message'),
+        infoMessage: document.getElementById('info-message')
+    };
 }
-var trackList = document.getElementById("track-list-body");
-var infoShown = false;
 
-var synth = new WebAudioTinySynth({quality:1, useReverb:0, debug:0});
-var synth2 = new WebAudioTinySynth({quality:1, useReverb:0, debug:0});
-
-var pauseButton = document.getElementById("pause-button");
-var playButton = document.getElementById("play-button");
-var infoSwitch = document.getElementById("info-switch")
-var panicAll = document.getElementById("panic-all");
-var gridSwitch = document.getElementById("grid-switch");
-
-
-if(!infoShown) {
-  infoSwitch.innerText = "Info";
-  document.getElementById("session-info").style.display = "none";
-} else {
-  infoSwitch.innerText = "✕";
-  document.getElementById("session-info").style.display = "flex";
+/**
+ * Initialize MIDI system
+ */
+async function initializeMidi() {
+    try {
+        // Initialize MIDI Device Manager
+        app.midiDeviceManager = new MidiDeviceManager();
+        const midiSupported = await app.midiDeviceManager.initialize();
+        
+        if (!midiSupported) {
+            showError('Web MIDI API not supported in this browser');
+            app.elements.midiStatus.innerHTML = '<strong>Not Supported</strong>';
+            return;
+        }
+        
+        // Initialize Routing Matrix
+        app.routingMatrix = new RoutingMatrix();
+        
+        // Initialize MIDI Router
+        app.midiRouter = new MidiRouter(app.midiDeviceManager, app.routingMatrix);
+        
+        // Set up callbacks
+        app.midiDeviceManager.setDeviceChangeCallback(onDeviceChange);
+        app.routingMatrix.setTrackChangeCallback(onTrackChange);
+        app.routingMatrix.setRoutingChangeCallback(onRoutingChange);
+        
+        // Update UI
+        app.elements.midiStatus.innerHTML = '<strong>Ready</strong>';
+        updateDeviceList();
+        
+        console.log('MIDI system initialized successfully');
+        
+    } catch (error) {
+        console.error('Failed to initialize MIDI system:', error);
+        showError('Failed to initialize MIDI system: ' + error.message);
+        app.elements.midiStatus.innerHTML = '<strong>Error</strong>';
+    }
 }
 
-infoSwitch.addEventListener("click", function(event){
-  if(infoShown) {
-    this.innerText = "Info";
-    document.getElementById("session-info").style.display = "none";
-  } else {
-    this.innerText = "✕";
-    document.getElementById("session-info").style.display = "flex";
-  }
-  infoShown = !infoShown;
-});
+/**
+ * Initialize socket connection
+ */
+function initializeSocket() {
+    // Get session name from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    app.sessionName = urlParams.get('session') || 'default';
+    
+    // Initialize socket connection
+    app.socket = io('', {
+        query: { 
+            session: app.sessionName,
+            type: 'sequencer'
+        }
+    });
+    
+    // Socket event handlers
+    app.socket.on('connect', onSocketConnect);
+    app.socket.on('disconnect', onSocketDisconnect);
+    app.socket.on('track joined', onTrackJoined);
+    app.socket.on('track left', onTrackLeft);
+    app.socket.on('track-midi-message', onTrackMidiMessage);
+    app.socket.on('sequencer exists', onSequencerExists);
+    app.socket.on('error', onSocketError);
+}
 
+/**
+ * Set up event listeners for UI elements
+ */
+function setupEventListeners() {
+    // Session controls
+    app.elements.playButton.addEventListener('click', onPlaySession);
+    app.elements.pauseButton.addEventListener('click', onPauseSession);
+    app.elements.panicAllButton.addEventListener('click', onPanicAll);
+    
+    // Panel toggles
+    app.elements.infoToggle.addEventListener('click', () => {
+        app.elements.devicePanel.classList.toggle('hidden');
+    });
+    
+    app.elements.statsToggle.addEventListener('click', () => {
+        app.elements.statsPanel.classList.toggle('hidden');
+    });
+    
+    // Copy URL button
+    app.elements.copyUrlButton.addEventListener('click', onCopyUrl);
+}
 
-gridSwitch.addEventListener("click", function(event) {
-  document.getElementById("grid-container").classList.toggle("display-flex");
-  document.getElementById("grid-container").classList.toggle("display-none");
-  document.getElementById("container").classList.toggle("display-flex");
-  document.getElementById("container").classList.toggle("display-none");
-});
+// ===== SOCKET EVENT HANDLERS =====
 
+function onSocketConnect() {
+    console.log('Socket connected:', app.socket.id);
+    app.elements.sessionStatus.innerHTML = '<strong>Connected</strong>';
+    showInfo('Connected to session: ' + app.sessionName);
+}
 
-// Am I a sequencer?
-var isSeq = location.pathname.includes("sequencer");
-var initials = "";
-var session = findGetParameter("session") || DEFAULT_SESSION;
+function onSocketDisconnect() {
+    console.log('Socket disconnected');
+    app.elements.sessionStatus.innerHTML = '<strong>Disconnected</strong>';
+    showError('Disconnected from server');
+}
 
-var socket = io("", {query:{code: code, session:session}});
-var mySocketID;
-socket.on("connect", () => {
-  console.log("Connected, my socketID:" + socket.id);
-  mySocketID = socket.id;
-});
+function onTrackJoined(data) {
+    console.log('Track joined:', data);
+    const trackId = data.track.toString();
+    
+    // Add track to routing matrix
+    app.routingMatrix.addTrack(trackId, data.socketID, data.initials);
+    
+    // Update UI
+    updateRoutingMatrix();
+    updateStatistics();
+}
 
-socket.on('sequencer exists', function(msg) {
-  document.location.href = "/?exitreason=" + msg.reason;
-});
+function onTrackLeft(data) {
+    console.log('Track left:', data);
+    const trackId = data.track.toString();
+    
+    // Handle disconnect in MIDI router (sends note offs)
+    if (app.midiRouter) {
+        app.midiRouter.handleTrackDisconnect(trackId);
+    }
+    
+    // Remove track from routing matrix
+    app.routingMatrix.removeTrack(trackId);
+    
+    // Update UI
+    updateRoutingMatrix();
+    updateStatistics();
+}
 
-socket.on('track joined', function(msg) {
-  //{ initials: initials, track:track, socketID: socket.id }
-  //console.log("Track joined: " + msg.socketID);
-  // This extracts the channel from the MIDI message
-  var trackIndex = allocateTrack({socketID: msg.socketID, initials:msg.initials,
-                              ready: false, midiOut: null, midiIn: null, channel: null});
-  var channel = trackIndex%16;
-  console.log("Track index: " + trackIndex + " Channel: " + channel);
-  updateTracks();
-  var colors = addToGrid(msg.initials, msg.socketID);
-  socket.emit('track data', { socketID: msg.socketID, channel: channel, colors: colors });
-});
+function onTrackMidiMessage(data) {
+    if (!app.midiRouter) return;
+    
+    // Find track by socket ID
+    const trackId = app.routingMatrix.findTrackBySocketId(data.socketID);
+    if (!trackId) {
+        console.warn('Received MIDI message from unknown track:', data.socketID);
+        return;
+    }
+    
+    // Route the MIDI message
+    const success = app.midiRouter.routeMessage(
+        trackId, 
+        new Uint8Array(data.message), 
+        data.timestamp || performance.now()
+    );
+    
+    if (success) {
+        // Flash visual feedback for the track
+        flashTrackActivity(trackId);
+    }
+    
+    // Update statistics periodically
+    if (Date.now() - app.lastStatsUpdate > app.statsUpdateInterval) {
+        updateStatistics();
+        app.lastStatsUpdate = Date.now();
+    }
+}
 
-socket.on('midi message', function(msg) {
-  var port = tracks[tracks.findBysocketId(msg.socketID)].midiOut;
-  var channel = parseInt(tracks[tracks.findBysocketId(msg.socketID)].channel);
-  if(channel != -1) {
-    msg.message = replaceMidiChannel(msg.message, channel);
-  }
-  if(port == -1) {
-    if(channel <= 15) {
-      out = synth;
+function onSequencerExists(data) {
+    showError('Session already has a sequencer: ' + data.reason);
+    setTimeout(() => {
+        window.location.href = '/';
+    }, 3000);
+}
+
+function onSocketError(error) {
+    console.error('Socket error:', error);
+    showError('Socket error: ' + error.message);
+}
+
+// ===== MIDI EVENT HANDLERS =====
+
+function onDeviceChange(data) {
+    console.log('MIDI device change:', data);
+    updateDeviceList();
+    
+    if (data.type === 'connected') {
+        showInfo('MIDI device connected: ' + data.device.name);
+    } else if (data.type === 'disconnected') {
+        showInfo('MIDI device disconnected: ' + data.device.name);
+    }
+}
+
+function onTrackChange(action, trackId, track) {
+    console.log('Track change:', action, trackId, track);
+    updateRoutingMatrix();
+}
+
+function onRoutingChange(trackId, routing) {
+    console.log('Routing change:', trackId, routing);
+    // Routing changes are handled in the UI event handlers
+}
+
+// ===== UI EVENT HANDLERS =====
+
+function onPlaySession() {
+    app.isPlaying = true;
+    app.elements.playButton.disabled = true;
+    app.elements.pauseButton.disabled = false;
+    
+    // Emit session play event
+    app.socket.emit('session play', { socketID: app.socket.id });
+    
+    showInfo('Session started - tracks can now play');
+}
+
+function onPauseSession() {
+    app.isPlaying = false;
+    app.elements.playButton.disabled = false;
+    app.elements.pauseButton.disabled = true;
+    
+    // Emit session pause event
+    app.socket.emit('session pause', { socketID: app.socket.id });
+    
+    showInfo('Session paused - tracks are now muted');
+}
+
+function onPanicAll() {
+    if (app.midiRouter) {
+        const panicCount = app.midiRouter.sendAllTracksPanic();
+        showInfo(`Panic sent to ${panicCount} tracks`);
+    }
+}
+
+function onCopyUrl() {
+    const url = app.elements.trackUrl.textContent;
+    navigator.clipboard.writeText(url).then(() => {
+        showInfo('URL copied to clipboard!');
+        app.elements.copyUrlButton.textContent = '✓';
+        setTimeout(() => {
+            app.elements.copyUrlButton.textContent = '📋';
+        }, 2000);
+    }).catch(() => {
+        showError('Failed to copy URL to clipboard');
+    });
+}
+
+// ===== UI UPDATE FUNCTIONS =====
+
+function updateSessionInfo() {
+    if (app.elements.sessionName) {
+        app.elements.sessionName.textContent = app.sessionName || '-';
+    }
+}
+
+function updateTrackUrl() {
+    const baseUrl = window.location.origin;
+    const trackUrl = `${baseUrl}/track?session=${app.sessionName}`;
+    
+    if (app.elements.trackUrl) {
+        app.elements.trackUrl.textContent = trackUrl;
+    }
+}
+
+function updateDeviceList() {
+    if (!app.midiDeviceManager || !app.elements.deviceList) return;
+    
+    const devices = app.midiDeviceManager.getOutputDevicesList();
+    const status = app.midiDeviceManager.getStatus();
+    
+    // Update device status
+    if (app.elements.deviceStatus) {
+        if (status.supported) {
+            app.elements.deviceStatus.innerHTML = `
+                <div>✅ Web MIDI supported - ${status.connectedOutputs} of ${status.outputCount} devices connected</div>
+            `;
+        } else {
+            app.elements.deviceStatus.innerHTML = `
+                <div>❌ Web MIDI not supported in this browser</div>
+            `;
+        }
+    }
+    
+    // Update device list
+    app.elements.deviceList.innerHTML = '';
+    
+    if (devices.length === 0) {
+        app.elements.deviceList.innerHTML = `
+            <div class="device-item">
+                <div class="device-status-indicator disconnected"></div>
+                <div class="device-info">
+                    <div class="device-name">No MIDI devices detected</div>
+                    <div class="device-manufacturer">Connect a MIDI interface or synthesizer</div>
+                </div>
+            </div>
+        `;
     } else {
-      out = synth2;
-      channel = channel - 16;
+        devices.forEach(device => {
+            const deviceElement = document.createElement('div');
+            deviceElement.className = 'device-item';
+            deviceElement.innerHTML = `
+                <div class="device-status-indicator ${device.state === 'connected' ? '' : 'disconnected'}"></div>
+                <div class="device-info">
+                    <div class="device-name">${device.name}</div>
+                    <div class="device-manufacturer">${device.manufacturer}</div>
+                </div>
+            `;
+            app.elements.deviceList.appendChild(deviceElement);
+        });
     }
-  } else {
-    out = midiOuts[port];
-  }
-  var initialsTd = document.getElementById("initials-"+msg.socketID);
-  out.send(msg.message);
-  debugMidiMessage(msg.message);
-  if( (msg.message[0] & 0xF0) == P_CHANGE ) {
-    var dropDown = document.getElementById("prog-"+msg.socketID);
-    dropDown.selectedIndex = msg.message[1];
-  };
-  flashElement(initialsTd, "lime");
-});
+}
 
-socket.on('track left', function(msg) {
-  tracks[tracks.findBysocketId(msg.socketID)] = null;
-  removeFromGrid(msg.socketID);
-  updateTracks();
-});
-
-function updateTracks() {
-  tracks.forEach(function(track, index, arr) {
-    var trackItem = document.getElementById("track-" + index);
-    if(track == null) {
-      if(trackItem) trackItem.remove();
-      return;
+function updateRoutingMatrix() {
+    if (!app.routingMatrix || !app.elements.routingTableBody) return;
+    
+    const matrixData = app.routingMatrix.getMatrixData();
+    const devices = app.midiDeviceManager ? app.midiDeviceManager.getOutputDevicesList() : [];
+    
+    // Clear existing rows
+    app.elements.routingTableBody.innerHTML = '';
+    
+    if (matrixData.length === 0) {
+        // Show empty state
+        app.elements.noTracksMessage.style.display = 'block';
+        return;
     }
-    if(!trackItem) {
-      var newRow = document.createElement("tr");
-      var newCell = document.createElement("td");
-      newCell.id = "initials-"+track.socketID;
-      newCell.classList.add("initials-td");
-      newRow.classList.add("track-item");
-      newRow.id = "track-" + index;
-      newCell.innerText = track.initials;
-      newRow.appendChild(newCell);
+    
+    // Hide empty state
+    app.elements.noTracksMessage.style.display = 'none';
+    
+    // Create rows for each track
+    matrixData.forEach(track => {
+        const row = createTrackRow(track, devices);
+        app.elements.routingTableBody.appendChild(row);
+    });
+}
 
-      // -------- MIDI Port selector:
-      var midiOutSelector = document.getElementById("select-midi-out").cloneNode(true);
-      midiOutSelector.setAttribute("id","select-midi-out-"+index);
-      midiOutSelector.selectedIndex = 0;
-      track.midiOut = midiOutSelector.value;
+function createTrackRow(track, devices) {
+    const row = document.createElement('tr');
+    row.setAttribute('data-track-id', track.trackId);
+    
+    // Track number
+    const trackNumCell = document.createElement('td');
+    trackNumCell.innerHTML = `<span class="track-number">${track.trackNumber}</span>`;
+    row.appendChild(trackNumCell);
+    
+    // User initials
+    const initialsCell = document.createElement('td');
+    initialsCell.innerHTML = `<span class="user-initials">${track.initials}</span>`;
+    row.appendChild(initialsCell);
+    
+    // Status
+    const statusCell = document.createElement('td');
+    statusCell.innerHTML = `<span class="track-status ${track.status}">${track.status}</span>`;
+    row.appendChild(statusCell);
+    
+    // Device selector
+    const deviceCell = document.createElement('td');
+    const deviceSelect = createDeviceSelect(track, devices);
+    deviceCell.appendChild(deviceSelect);
+    row.appendChild(deviceCell);
+    
+    // Channel selector
+    const channelCell = document.createElement('td');
+    const channelSelect = createChannelSelect(track);
+    channelCell.appendChild(channelSelect);
+    row.appendChild(channelCell);
+    
+    // Volume control
+    const volumeCell = document.createElement('td');
+    const volumeControl = createVolumeControl(track);
+    volumeCell.appendChild(volumeControl);
+    row.appendChild(volumeCell);
+    
+    // Transpose control
+    const transposeCell = document.createElement('td');
+    const transposeControl = createTransposeControl(track);
+    transposeCell.appendChild(transposeControl);
+    row.appendChild(transposeCell);
+    
+    // Actions
+    const actionsCell = document.createElement('td');
+    const actionButtons = createActionButtons(track);
+    actionsCell.appendChild(actionButtons);
+    row.appendChild(actionsCell);
+    
+    return row;
+}
 
-      var synthDropdown = document.createElement("select");
-      synthDropdown.id = "prog-" + track.socketID;
-      synthDropdown.setAttribute("synthId", track.socketID);
-      synthDropdown.setAttribute("channel", index);
-
-      midiOutSelector.addEventListener("change", function(event){
-        track.midiOut = this.value;
-        if(this.value == "-1") {
-          /// ***
-          function pg(event) { 
-            prog(this.getAttribute("channel"), this.selectedIndex);
-          }
-          synthDropdown.addEventListener("change", pg);
-          synthDropdown.style.visibility = "visible";
-          updateProgramList(synth, synthDropdown)
-        } else {
-          synthDropdown.style.visibility = "hidden";
-          synthDropdown.removeEventListener("change", pg);
+function createDeviceSelect(track, devices) {
+    const select = document.createElement('select');
+    select.className = 'routing-select';
+    select.disabled = track.status !== 'connected';
+    
+    // Add default option
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'Select Device...';
+    select.appendChild(defaultOption);
+    
+    // Add device options
+    devices.forEach(device => {
+        const option = document.createElement('option');
+        option.value = device.id;
+        option.textContent = device.displayName;
+        option.disabled = device.state !== 'connected';
+        
+        if (track.deviceId === device.id) {
+            option.selected = true;
         }
-        /// ***
-      });
-
-      if(midiOutSelector.value == "-1") {
-        /// ***
-        function pg(event) { 
-          prog(this.getAttribute("channel"), this.selectedIndex);
+        
+        select.appendChild(option);
+    });
+    
+    // Event handler
+    select.addEventListener('change', (e) => {
+        const deviceId = e.target.value || null;
+        const enabled = deviceId !== null;
+        
+        app.routingMatrix.updateRouting(track.trackId, {
+            deviceId: deviceId,
+            enabled: enabled
+        });
+        
+        // If enabling routing, auto-assign available channel
+        if (enabled && deviceId) {
+            const availableChannel = app.routingMatrix.getNextAvailableChannel(deviceId);
+            if (availableChannel >= 0) {
+                app.routingMatrix.updateRouting(track.trackId, {
+                    channel: availableChannel
+                });
+            }
         }
-        synthDropdown.addEventListener("change", pg);
-        synthDropdown.style.visibility = "visible";
-        updateProgramList(synth, synthDropdown)
-      } else {
-        synthDropdown.style.visibility = "hidden";
-        synthDropdown.removeEventListener("change", pg);
-      }
-      /// ***
-      newCell = document.createElement("td");
-      newCell.appendChild(midiOutSelector);
-      newCell.appendChild(synthDropdown);
-      newRow.appendChild(newCell);
+        
+        updateRoutingMatrix();
+    });
+    
+    return select;
+}
 
-      // -------- MIDI Channel selector:
-      newCell = document.createElement("td");
-      var channelSelector = document.getElementById("select-midi-channel").cloneNode(true);
-      channelSelector.setAttribute("id","select-midi-channel-"+index);
-      channelSelector.value = -1;
-      track.channel = -1;
-      channelSelector.addEventListener("change", function(event){
-        tracks[tracks.findBysocketId(track.socketID)].channel = this.value;
-      });
-      newCell.appendChild(channelSelector);
-      newRow.appendChild(newCell);
-
-      // -------- Panic button:
-      newCell = document.createElement("td");
-      var panicButton = document.createElement("button");
-      panicButton.innerText = "Panic";
-      panicButton.classList.add("panic-button");
-      panicButton.addEventListener("click", function(event){
-        var channel = parseInt(tracks.find(function(value, index, arr){ return value.socketID == track.socketID;}).channel);
-        var port = tracks.find(function(value, index, arr){ return value.socketID == track.socketID;}).midiOut;
-        if(port == -1) {
-          console.log("Panic to synth " + track.socketID);
-          synth.send([CC_CHANGE + channel, 123, 127]);
-        } else {
-          midiOuts[port].send([CC_CHANGE + channel, 123, 127]);
+function createChannelSelect(track) {
+    const select = document.createElement('select');
+    select.className = 'routing-select';
+    select.disabled = !track.enabled || track.status !== 'connected';
+    
+    // Add channel options (1-16)
+    for (let i = 0; i < 16; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = (i + 1).toString();
+        
+        if (track.channel === i) {
+            option.selected = true;
         }
-        flashElement(this, "red");
-      });
-      newCell.appendChild(panicButton);
-      newRow.appendChild(newCell);
-
-      trackList.appendChild(newRow);
+        
+        select.appendChild(option);
     }
-  });
-
+    
+    // Event handler
+    select.addEventListener('change', (e) => {
+        const channel = parseInt(e.target.value);
+        app.routingMatrix.updateRouting(track.trackId, { channel: channel });
+    });
+    
+    return select;
 }
 
-initials = "SQ";
-document.getElementById("session-name").innerText = session;
-var info = document.getElementById("session-info");
-var urlTmp = document.location.origin;
-//urlTmp = urlTmp.replace("localhost","jina-5.local");
-var trackURL = urlTmp + "/track?session="+session;
-let qrcodeURL = "https://qrcode.azurewebsites.net/qr?width=300&margin=1&string=" + encodeURIComponent(trackURL);
-var qrcode = document.createElement("img");
-qrcode.setAttribute("src",qrcodeURL);
-qrcode.setAttribute("id","qrcode");
-document.getElementById("qrcode-wrapper").appendChild(qrcode);
-document.getElementById("track-url").setAttribute("href",trackURL);
-document.getElementById("track-url").innerText = trackURL;
-document.getElementById("url-copy").innerText = trackURL;
-document.getElementById("copy").addEventListener("click", function(e) {
-  copyURL("url-copy");
-  this.innerText = "Copiado!";
-  p = setTimeout( function() { document.getElementById("copy").innerText = "Copiar enlace" }, 2000);
-});
-
-pauseButton.addEventListener("click",function(event){
-  this.classList.add("paused");
-  playButton.classList.remove("playing");
-  console.log("Veil ON, paused");
-  socket.emit('session pause', { socketID: mySocketID });
-});
-
-playButton.addEventListener("click",function(event){
-  pauseButton.classList.remove("paused");
-  this.classList.add("playing");
-  console.log("Veil OFF, session started");
-  socket.emit('session play', { socketID: mySocketID });
-});
-
-panicAll.addEventListener("click",function(event){
-  console.log("Panic all");
-  var panicButtons = document.querySelectorAll(".panic-button");
-  panicButtons.forEach(function(button) {
-    button.click();
-  });
-});
-
-function flashElement(elem, color) {
-  setTimeout(function() { elem.style.borderColor = color;
-    setTimeout(function() { elem.style.borderColor = "black"; }, 200);
-  }, 0);
+function createVolumeControl(track) {
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.className = 'volume-control';
+    input.min = '0';
+    input.max = '127';
+    input.value = track.volume;
+    input.disabled = !track.enabled || track.status !== 'connected';
+    input.title = `Volume: ${track.volume}`;
+    
+    // Event handler
+    input.addEventListener('input', (e) => {
+        const volume = parseInt(e.target.value);
+        e.target.title = `Volume: ${volume}`;
+        app.routingMatrix.updateRouting(track.trackId, { volume: volume });
+    });
+    
+    return input;
 }
 
-function prog(ch, pg){
-  if(ch == undefined) ch = 0;
-  var msg = [0xc0 + parseInt(ch), pg];
-  console.log("Changing program on ch " + ch + " to:" + pg);
-  synth.send(msg);
+function createTransposeControl(track) {
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.className = 'transpose-control';
+    input.min = '-24';
+    input.max = '24';
+    input.value = track.transpose;
+    input.disabled = !track.enabled || track.status !== 'connected';
+    input.title = 'Transpose (semitones)';
+    
+    // Event handler
+    input.addEventListener('change', (e) => {
+        const transpose = parseInt(e.target.value);
+        app.routingMatrix.updateRouting(track.trackId, { transpose: transpose });
+    });
+    
+    return input;
 }
 
-async function updateProgramList(synth, dropdownElem){
-  await synth.ready();
-  for(var i=0;i<128;++i){
-    var o = document.createElement("option");
-    o.innerHTML = (i+1)+" : "+synth.getTimbreName(0,i);
-    dropdownElem.appendChild(o);
-  }
+function createActionButtons(track) {
+    const container = document.createElement('div');
+    container.className = 'action-buttons';
+    
+    // Test button
+    const testBtn = document.createElement('button');
+    testBtn.className = 'action-btn test-btn';
+    testBtn.innerHTML = '🎵';
+    testBtn.title = 'Send test note';
+    testBtn.disabled = !track.enabled || track.status !== 'connected';
+    
+    testBtn.addEventListener('click', () => {
+        if (app.midiRouter) {
+            app.midiRouter.sendTestMessage(track.trackId);
+            flashTrackActivity(track.trackId);
+        }
+    });
+    
+    container.appendChild(testBtn);
+    
+    // Panic button
+    const panicBtn = document.createElement('button');
+    panicBtn.className = 'action-btn panic-btn';
+    panicBtn.innerHTML = '🛑';
+    panicBtn.title = 'Send panic (all notes off)';
+    panicBtn.disabled = !track.enabled || track.status !== 'connected';
+    
+    panicBtn.addEventListener('click', () => {
+        if (app.midiRouter) {
+            app.midiRouter.sendTrackPanic(track.trackId);
+        }
+    });
+    
+    container.appendChild(panicBtn);
+    
+    return container;
 }
 
-function allocateTrack(trackInfo) {
-  var trackIndex = tracks.indexOf(null);
-  if(trackIndex == -1) {
-    trackIndex = tracks.length;
-    tracks.push(trackInfo);
-  } else {
-    tracks[trackIndex] = trackInfo;
-  }
-  tracks[trackIndex] = trackInfo;
-  return trackIndex;
-}
-// --------------- Keyboard
-
-document.addEventListener(
-  "keydown",
-  (event) => {
-    const keyName = event.key;
-
-    if (keyName === "i") {
-      infoSwitch.click();
-      return;
+function updateStatistics() {
+    if (!app.midiRouter || !app.routingMatrix) return;
+    
+    const stats = app.midiRouter.getStats();
+    const matrixStats = app.routingMatrix.getStats();
+    
+    // Update statistics display
+    if (app.elements.statActiveTracks) {
+        app.elements.statActiveTracks.textContent = matrixStats.activeTracks;
     }
-
-    if (keyName === "g") {
-      gridSwitch.click();
-      return;
+    if (app.elements.statRoutedTracks) {
+        app.elements.statRoutedTracks.textContent = matrixStats.routedTracks;
     }
-
-    if (keyName === " ") {
-      if(pauseButton.classList.contains("paused")) {
-        playButton.click();
-      } else {
-        pauseButton.click();
-      }
-      return;
+    if (app.elements.statMessagesRouted) {
+        app.elements.statMessagesRouted.textContent = stats.messagesRouted;
     }
-
-  },
-  false,
-);
-
-// --------------- Grid
-
-function addToGrid(initials, socketID) {
-  var newDiv = document.createElement('div');
-  var numTiles = document.querySelectorAll('.grid-item').length;
-  newDiv.className = 'grid-item';
-  newDiv.innerText = initials;
-  newDiv.id = "grid-item-" + socketID;
-  var colors = getRandomColorAndOptimalTextColor();
-  newDiv.style.backgroundColor = colors[0];
-  newDiv.style.color = colors[1];
-  document.getElementById('grid').appendChild(newDiv);
-  resizeGrid();
-  return colors;
+    if (app.elements.statRoutingErrors) {
+        app.elements.statRoutingErrors.textContent = stats.routingErrors;
+    }
 }
 
-function removeFromGrid(socketID) {
-  var gridItem = document.getElementById("grid-item-" + socketID);
-  if(gridItem) gridItem.remove();
-  resizeGrid();
+function flashTrackActivity(trackId) {
+    const row = document.querySelector(`tr[data-track-id="${trackId}"]`);
+    if (row) {
+        row.classList.add('status-change');
+        setTimeout(() => {
+            row.classList.remove('status-change');
+        }, 600);
+    }
 }
 
-window.addEventListener('resize', function(event) {
-  resizeGrid();
-}, true);
+// ===== UTILITY FUNCTIONS =====
 
-function resizeGrid() {
-  document.querySelectorAll('.grid-item').forEach(function(item, index) {
-    //item.clientWidth = item.parentElement.clientWidth / numTiles + '%';
-    var w = item.clientWidth;
-    //item.style.flexBasis = 1/length + '%';
-    item.style.height = w + 'px';
-  });
+function showError(message) {
+    console.error(message);
+    if (app.elements.errorMessage) {
+        app.elements.errorMessage.textContent = message;
+        app.elements.errorMessage.classList.remove('hidden');
+        
+        setTimeout(() => {
+            app.elements.errorMessage.classList.add('hidden');
+        }, 5000);
+    }
 }
 
-function getRandomColorAndOptimalTextColor() {
-  var colors = ['#e6194B', '#3cb44b', '#ffe119', '#4363d8',
-              '#f58231', '#42d4f4', '#f032e6', '#fabed4',
-              '#469990', '#dcbeff', '#9A6324', '#fffac8',
-              '#800000', '#aaffc3', '#000075', '#a9a9a9']
-              //'#ffffff', '#000000'];
-  var backgroundColor = colors[Math.floor(Math.random() * colors.length)]; // Select a random color from the array
-  // Convert the background color to RGB
-  var rgb = backgroundColor.slice(1).match(/.{2}/g).map(x => parseInt(x, 16));
-  // Calculate the luminance of the background color
-  var luminance = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255;
-  // If the luminance is greater than 0.5, the background color is light, so the text color should be black. Otherwise, it should be white.
-  var textColor = luminance > 0.5 ? 'black' : 'white';
-  return [backgroundColor, textColor];
+function showInfo(message) {
+    console.info(message);
+    if (app.elements.infoMessage) {
+        app.elements.infoMessage.textContent = message;
+        app.elements.infoMessage.classList.remove('hidden');
+        
+        setTimeout(() => {
+            app.elements.infoMessage.classList.add('hidden');
+        }, 3000);
+    }
 }

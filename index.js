@@ -72,70 +72,119 @@ app.use('/css', express.static(__dirname + '/css/'));
 app.use('/images', express.static(__dirname + '/images/'));
 
 io.on('connection', (socket) => {
+    // Determine connection type from query parameters or referrer
     var seq = false;
-    if(socket.handshake.headers.referer.includes("sequencer"))
-        seq = true;
+    var connectionType = socket.handshake.query.type;
+    
+    // Legacy support - check referrer if type not specified
+    if (!connectionType && socket.handshake.headers.referer) {
+        seq = socket.handshake.headers.referer.includes("sequencer");
+        connectionType = seq ? 'sequencer' : 'track';
+    }
+    
     var session = socket.handshake.query.session;
     var initials = socket.handshake.query.initials;
-    //var initials = socket.handshake.headers['user-agent'];
-    //var allocationMethod = socket.handshake.query.method || "random";
     var allocationMethod = "random";
+    
+    // Join the session room
     socket.join(session);
-    if(seq) {
-        var cookief = socket.handshake.headers.cookie; 
-        var cookies = cookie.parse(socket.handshake.headers.cookie);    
+    
+    if (connectionType === 'sequencer') {
+        // Handle sequencer connection
         const exists = sessions.select(session);
-        // TODO: Let sessions be initiated by tracks
+        
         if(exists >= 0) {
-            io.to(socket.id).emit('sequencer exists', {reason: ("Session '" + session + "' exists. Choose a different name.")});
-            logger.info("#" + session + " @SEQUENCER exists already.");
-        }
-        else {
+            io.to(socket.id).emit('sequencer exists', {
+                reason: `Session '${session}' already has a sequencer. Choose a different name.`
+            });
+            logger.info(`#${session} @SEQUENCER exists already.`);
+        } else {
+            // Create new session
             sessions.addSession(session, config.NUM_TRACKS, config.NUM_STEPS, allocationMethod, config.MAX_NUM_ROUNDS);
             sessions.select(session).setAttribute("isPlaying", false);
-            logger.info("#" + session + " @SEQUENCER joined session.");
             sessions.select(session).setSeqID(socket.id);
+            
+            logger.info(`#${session} @SEQUENCER joined session.`);
+            
+            // Handle sequencer disconnection
             socket.on('disconnect', () => {
-                logger.info("#" + session + " @SEQUENCER disconnected (sequencer). Clearing session");
-                socket.broadcast.to(session).emit('exit session',{reason: "Sequencer exited!"});
+                logger.info(`#${session} @SEQUENCER disconnected. Clearing session.`);
+                socket.broadcast.to(session).emit('exit session', {
+                    reason: "Sequencer disconnected!"
+                });
                 sessions.select(session).clearSession();
             });
-            // TODO: Send all tracks to sequencer
-            /*
-            var allParticipants = sessions.getAllParticipants(session);
-            var joinedParticipants = [];
-            allParticipants.forEach(function(value, index, arr){
-                if(value !== "")
-                    joinedParticipants.push({track: value.track, socketID: value.socketID});
+            
+            // Send current session state to sequencer
+            const currentSession = sessions.select(session);
+            const allParticipants = currentSession.getAllParticipants();
+            const connectedTracks = [];
+            
+            allParticipants.forEach((participant, index) => {
+                if (participant && participant.socketID) {
+                    connectedTracks.push({
+                        track: index,
+                        socketID: participant.socketID,
+                        initials: participant.initials
+                    });
+                }
             });
-            io.to(socket.id).emit('joined tracks', {tracks: joinedParticipants});
-            */
+            
+            if (connectedTracks.length > 0) {
+                io.to(socket.id).emit('existing tracks', { tracks: connectedTracks });
+            }
         }
     } else {
+        // Handle track connection
         const currentSession = sessions.select(session);
-        if(sessions.select(session).isReady()) {
-            var track = currentSession.allocateAvailableParticipant(socket.id, initials);
-            logger.info("#" + session + " @[" + initials + "] joined session on track " + track);
-            socket.broadcast.to(session).emit('track joined', { initials: initials, track:track, socketID: socket.id });
-            // Send track info to track on connection
-            //io.to(socket.id).emit('track data', {track});
-            socket.on('disconnect', () => {
-                var track2delete = currentSession.getParticipantNumber(socket.id);
-                currentSession.releaseParticipant(socket.id);
-                io.to(session).emit('track left', {track: track2delete, initials: initials, socketID: socket.id});
-                logger.info("#" + session + " @[" + initials + "] (" + socket.id + ") disconnected, clearing track " + track2delete);
+        
+        if (!currentSession || !currentSession.isReady()) {
+            io.to(socket.id).emit('exit session', {
+                reason: "Session not available. Make sure sequencer is running."
             });
-            // TODO: create session attributes. The line below should look like:
-            // io.to(socket.id).emit('session is playing', {playing: sessions.getAttribute(session, "isPlaying")});
-            //io.to(socket.id).emit('session is playing', {playing: sessions.isPlaying(session)});
-            var sessionStarted = currentSession.getAttribute("isPlaying");
-            if(sessionStarted) {
-                io.to(socket.id).emit('veil-off', {socketID: socket.id});
-            } else {
-                io.to(socket.id).emit('veil-on', {socketID: socket.id});
-            }
+            return;
+        }
+        
+        // Allocate track to participant
+        var track = currentSession.allocateAvailableParticipant(socket.id, initials);
+        
+        if (track === -1) {
+            io.to(socket.id).emit('exit session', {
+                reason: "Session is full. No available tracks."
+            });
+            return;
+        }
+        
+        logger.info(`#${session} @[${initials}] joined session on track ${track}`);
+        
+        // Notify sequencer about new track
+        socket.broadcast.to(session).emit('track joined', { 
+            initials: initials, 
+            track: track, 
+            socketID: socket.id 
+        });
+        
+        // Handle track disconnection
+        socket.on('disconnect', () => {
+            const trackToDelete = currentSession.getParticipantNumber(socket.id);
+            currentSession.releaseParticipant(socket.id);
+            
+            // Notify sequencer about track leaving
+            io.to(session).emit('track left', {
+                track: trackToDelete, 
+                initials: initials, 
+                socketID: socket.id
+            });
+            
+            logger.info(`#${session} @[${initials}] (${socket.id}) disconnected, clearing track ${trackToDelete}`);
+        });
+        
+        // Send initial session state to track
+        const sessionStarted = currentSession.getAttribute("isPlaying");
+        if (sessionStarted) {
+            io.to(socket.id).emit('veil-off', { socketID: socket.id });
         } else {
-            io.to(socket.id).emit('exit session', {reason: "Session has not started..."});
+            io.to(socket.id).emit('veil-on', { socketID: socket.id });
         }
     }
     
@@ -184,27 +233,73 @@ io.on('connection', (socket) => {
         logger.info("#" + session + " (" + msg.socketID + ") ready to play");
     });
 
+    // ===== NEW MIDI ROUTING EVENTS =====
+    
+    // Track sends MIDI message to be routed by sequencer
+    socket.on('track-midi-message', (msg) => {
+        const messageType = msg.message[0] >> 4;
+        var type = 'OTHER';
+        switch (messageType) {
+            case 0x8: type = 'NOTE_OFF'; break;
+            case 0x9: type = 'NOTE_ON'; break;
+            case 0xB: type = 'CC_CHANGE'; break;
+            case 0xC: type = 'P_CHANGE'; break;
+            case 0xD: type = 'PRESSURE'; break;
+            case 0xE: type = 'PITCH_BEND'; break;
+            default: type = 'OTHER';
+        }
+        
+        // Forward message to sequencer for routing
+        const currentSession = sessions.select(session);
+        if (currentSession) {
+            const seqID = currentSession.getSeqID();
+            if (seqID) {
+                io.to(seqID).emit('track-midi-message', {
+                    socketID: socket.id,
+                    message: msg.message,
+                    timestamp: msg.timestamp || Date.now(),
+                    source: msg.source || 'track'
+                });
+                
+                // Log MIDI activity
+                const initials = currentSession.getParticipantInitials(socket.id) || 'UNKNOWN';
+                logger.info(`#${session} @[${initials}] MIDI ${type} routed to sequencer`);
+            }
+        }
+    });
+    
+    // Sequencer requests routing configuration
+    socket.on('request-routing-config', (msg) => {
+        // This would be used if we wanted to sync routing config
+        // For now, routing is managed entirely on sequencer side
+        logger.info(`#${session} Routing config requested by ${socket.id}`);
+    });
+    
+    // Sequencer updates routing configuration
+    socket.on('update-routing', (msg) => {
+        // Forward routing updates to tracks if needed
+        socket.broadcast.to(session).emit('routing-updated', msg);
+        logger.info(`#${session} Routing configuration updated`);
+    });
+    
+    // ===== LEGACY MIDI EVENT (for backward compatibility) =====
+    
     socket.on('midi message', (msg) => {
         const messageType = msg.message[0] >> 4;
         var type = 'OTHER';
         switch (messageType) {
-          case 0x8:
-            type = 'NOTE_OFF'; break;
-          case 0x9:
-            type = 'NOTE_ON'; break;
-          case 0xB:
-            type = 'CC_CHANGE'; break;
-          case 0xC:
-            type = 'P_CHANGE'; break;
-        case 0xD:
-            type = 'PRESSURE'; break;
-          case 0xE:
-            type = 'PITCH_BEND'; break;
-          default:
-            type = 'OTHER';
+            case 0x8: type = 'NOTE_OFF'; break;
+            case 0x9: type = 'NOTE_ON'; break;
+            case 0xB: type = 'CC_CHANGE'; break;
+            case 0xC: type = 'P_CHANGE'; break;
+            case 0xD: type = 'PRESSURE'; break;
+            case 0xE: type = 'PITCH_BEND'; break;
+            default: type = 'OTHER';
         }
+        
+        // Legacy behavior - forward to all clients in session
         io.to(session).emit('midi message', msg);
-        logger.info("#" + session + " (" + msg.socketID + ") MIDI message (" + type + " from " + msg.source + ")");
+        logger.info(`#${session} (${msg.socketID}) Legacy MIDI message (${type} from ${msg.source})`);
     });
 
     /*
