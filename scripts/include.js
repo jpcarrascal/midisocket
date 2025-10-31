@@ -12,7 +12,7 @@ const MAX_OCTAVE = 6;
 const MIN_OCTAVE = 1;
 const MID_OCTAVE = 3;
 const SYNTH_DEFAULT_VEL = 63;
-const colors = ["cyan","chartreuse","dodgerblue","darkorchid","magenta","red","orange","gold","black","black","black"];
+const colors = ["#666666","#777777","#888888","#999999","#aaaaaa","#bbbbbb","#cccccc","#dddddd","#333333","#444444","#555555"];
 /*
 36. Kick Drum
 38. Snare Drum
