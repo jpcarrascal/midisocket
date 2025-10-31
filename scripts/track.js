@@ -83,12 +83,16 @@ if(!initials && session) { // No initials == no socket connection
 
     // New message for device assignment
     socket.on('track-assignment', function(msg) {
+        console.log("Received track-assignment message:", msg);
         if(msg.socketID == mySocketID) {
-            console.log("Device assignment:", msg);
+            console.log("Device assignment matches my socketID:", msg);
             assignedDevice = msg.device;
             midiChannel = msg.channel;
             trackInfoElement.textContent = `Track ${msg.trackNumber}`;
+            console.log("Updating device interface with:", msg.device);
             updateDeviceInterface(msg.device);
+        } else {
+            console.log("Assignment not for me. My socketID:", mySocketID, "Message socketID:", msg.socketID);
         }
     });
 

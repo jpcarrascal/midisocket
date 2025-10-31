@@ -366,13 +366,24 @@ function onRoutingChange(trackId, routing) {
     
     // Send updated assignment to the track when routing changes
     const track = app.routingMatrix.getTrack(trackId);
+    console.log('Track info for routing change:', track);
+    
     if (track && track.socketId) {
         // Get device information if assigned
         let deviceInfo = null;
         if (routing && routing.deviceId && routing.enabled) {
-            console.log('Routing change - device assigned:', routing.deviceId);
+            console.log('Routing change - device assigned:', routing.deviceId, 'enabled:', routing.enabled);
+            
+            // Handle different device ID formats
+            let actualDeviceId = routing.deviceId;
+            if (routing.deviceId.startsWith('device:')) {
+                actualDeviceId = parseInt(routing.deviceId.replace('device:', ''));
+                console.log('Parsed device ID from device: format:', actualDeviceId);
+            }
+            
             if (deviceConfig) {
-                const device = deviceConfig.getDeviceConfig(routing.deviceId);
+                const device = deviceConfig.getDeviceConfig(actualDeviceId);
+                console.log('Device from config:', device);
                 if (device) {
                     deviceInfo = {
                         id: routing.deviceId,
@@ -380,8 +391,13 @@ function onRoutingChange(trackId, routing) {
                         interface: device.assignedInterface,
                         controls: device.controls || null
                     };
+                    console.log('Created device info:', deviceInfo);
                 }
+            } else {
+                console.warn('deviceConfig not available');
             }
+        } else {
+            console.log('No device assigned or not enabled. DeviceId:', routing?.deviceId, 'Enabled:', routing?.enabled);
         }
         
         // Send updated assignment to track
@@ -674,6 +690,8 @@ function createDeviceSelect(track, devices) {
                 }
             }
         }
+        
+        console.log('Device selection changed for track', track.trackId, 'to deviceId:', deviceId, 'enabled:', enabled);
         
         app.routingMatrix.updateRouting(track.trackId, {
             deviceId: deviceId,
