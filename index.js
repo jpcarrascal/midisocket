@@ -236,6 +236,13 @@ io.on('connection', (socket) => {
         }
     });
     
+    // Sequencer sends track assignment response - forward to specific track
+    socket.on('track-assignment', (msg) => {
+        console.log('Sequencer sending track assignment:', msg.socketID);
+        // Forward assignment response directly to the requesting track
+        io.to(msg.socketID).emit('track-assignment', msg);
+    });
+    
     // Track sends MIDI message to be routed by sequencer
     socket.on('track-midi-message', (msg) => {
         const messageType = msg.message[0] >> 4;
