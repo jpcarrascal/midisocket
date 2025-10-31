@@ -11,7 +11,7 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
     margin: 0 !important;
     padding: 20px !important;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    background: linear-gradient(135deg, #888888 0%, #666666 100%) !important;
     background-color: transparent !important;
     min-height: 100vh !important;
     height: auto !important;
@@ -95,7 +95,7 @@ html {
 }
 
 .control-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #888888 0%, #666666 100%);
     color: white;
     border: none;
     padding: 10px 16px;
@@ -305,7 +305,7 @@ html {
 }
 
 #routing-table th {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #888888 0%, #666666 100%);
     color: white;
     padding: 15px 12px;
     text-align: left;
@@ -335,7 +335,7 @@ html {
 /* Track Status Indicators */
 .track-number {
     display: inline-block;
-    background: #667eea;
+    background: #888888;
     color: white;
     padding: 4px 8px;
     border-radius: 4px;
@@ -391,7 +391,7 @@ html {
 
 .routing-select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: #888888;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
@@ -490,7 +490,7 @@ html {
 }
 
 #copy-url {
-    background: #667eea;
+    background: #888888;
     color: white;
     border: none;
     padding: 8px 12px;
@@ -526,7 +526,7 @@ html {
 }
 
 #device-config-table th {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #888888 0%, #666666 100%);
     color: white;
     font-weight: 600;
     padding: 15px 12px;
@@ -642,7 +642,7 @@ html {
     align-items: center;
     padding: 20px;
     border-bottom: 1px solid #e2e8f0;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #888888 0%, #666666 100%);
     color: white;
 }
 
@@ -695,7 +695,7 @@ html {
 
 #device-search:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: #888888;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
@@ -712,7 +712,7 @@ html {
 }
 
 .device-item-modal:hover {
-    border-color: #667eea;
+    border-color: #888888;
     box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
 }
 
@@ -764,13 +764,13 @@ html {
 }
 
 .device-details-modal .default-channel {
-    color: #667eea;
+    color: #888888;
     font-weight: 500;
 }
 
 .add-device-modal-btn {
     padding: 8px 16px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #888888 0%, #666666 100%);
     color: white;
     border: none;
     border-radius: 6px;
@@ -1005,13 +1005,13 @@ html {
 }
 
 .controller-item:hover {
-    border-color: #667eea;
+    border-color: #888888;
     box-shadow: 0 2px 4px rgba(102, 126, 234, 0.1);
 }
 
 .controller-item.selected {
     background: #f0f7ff;
-    border-color: #667eea;
+    border-color: #888888;
 }
 
 .controller-item.disabled {
@@ -1043,7 +1043,7 @@ html {
 
 .controller-cc {
     font-weight: 500;
-    color: #667eea;
+    color: #888888;
 }
 
 .controller-range {
