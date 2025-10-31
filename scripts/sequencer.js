@@ -363,7 +363,39 @@ function onTrackChange(action, trackId, track) {
 
 function onRoutingChange(trackId, routing) {
     console.log('Routing change:', trackId, routing);
-    // Routing changes are handled in the UI event handlers
+    
+    // Send updated assignment to the track when routing changes
+    const track = app.routingMatrix.getTrack(trackId);
+    if (track && track.socketId) {
+        // Get device information if assigned
+        let deviceInfo = null;
+        if (routing && routing.deviceId && routing.enabled) {
+            console.log('Routing change - device assigned:', routing.deviceId);
+            if (deviceConfig) {
+                const device = deviceConfig.getDeviceConfig(routing.deviceId);
+                if (device) {
+                    deviceInfo = {
+                        id: routing.deviceId,
+                        name: device.name || 'Unknown Device',
+                        interface: device.assignedInterface,
+                        controls: device.controls || null
+                    };
+                }
+            }
+        }
+        
+        // Send updated assignment to track
+        const assignmentData = {
+            socketID: track.socketId,
+            device: deviceInfo,
+            channel: routing ? routing.channel : 0,
+            trackId: trackId,
+            trackNumber: parseInt(trackId) + 1
+        };
+        
+        console.log('Sending routing change assignment update:', assignmentData);
+        app.socket.emit('track-assignment', assignmentData);
+    }
 }
 
 // ===== UI EVENT HANDLERS =====
