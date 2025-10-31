@@ -274,17 +274,20 @@ html {
 
 /* Routing Matrix */
 #routing-matrix {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
     border-radius: 12px;
     padding: 20px;
+    margin-bottom: 20px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
 }
 
 #routing-matrix h3 {
     margin: 0 0 20px 0;
     font-size: 20px;
     font-weight: 600;
-    color: white;
+    color: #2d3748;
 }
 
 #matrix-container {
@@ -450,12 +453,12 @@ html {
 .empty-state {
     text-align: center;
     padding: 40px 20px;
-    color: rgba(255, 255, 255, 0.8);
+    color: #718096;
 }
 
 .empty-state h4 {
     margin: 0 0 10px 0;
-    color: white;
+    color: #4a5568;
     font-size: 18px;
 }
 
