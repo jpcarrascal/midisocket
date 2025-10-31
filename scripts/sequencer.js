@@ -23,6 +23,9 @@ let app = {
     statsUpdateInterval: 1000 // Update every second
 };
 
+// Global device configuration instance
+let deviceConfig = null;
+
 // Initialize application when page loads
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('Initializing MIDI Routing Sequencer...');
@@ -733,3 +736,7 @@ function showInfo(message) {
         }, 3000);
     }
 }
+
+// Expose functions globally for inter-module communication
+window.updateRoutingMatrix = updateRoutingMatrix;
+window.deviceConfig = () => deviceConfig;
