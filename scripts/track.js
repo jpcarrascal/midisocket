@@ -150,11 +150,13 @@ function updateDeviceInterface(device) {
     controllerContainer.innerHTML = '';
     currentControllers = {};
 
-    if (device.interface && device.interface !== "midi") {
+    if (device.controls && device.controls.length > 0) {
         // Device has specific controller mappings
+        console.log("Device has controls, generating device-specific interface");
         generateDeviceControllers(device);
     } else {
         // Generic MIDI interface - use standard controllers
+        console.log("No device controls found, using generic interface");
         generateGenericControllers();
     }
 }
@@ -207,6 +209,38 @@ function generateGenericControllers() {
     ]);
 }
 
+function createController(control) {
+    console.log("Creating controller for:", control.control_name, "CC:", control.cc_number);
+    
+    // Parse the value range to determine the max value
+    let maxValue = 127; // Default MIDI range
+    if (control.value_range) {
+        const rangeMatch = control.value_range.match(/(\d+).*?(\d+)/);
+        if (rangeMatch) {
+            maxValue = parseInt(rangeMatch[2]);
+        }
+    }
+    
+    // Create a controller group for this control
+    const group = createControllerGroup(control.control_name);
+    
+    // For now, create all controls as sliders
+    // Could be enhanced to create different control types based on the value range
+    const defaultValue = Math.floor(maxValue / 2); // Start at middle value
+    createSlider(group, control.control_name, control.cc_number, defaultValue, maxValue);
+    
+    // Add description as tooltip or subtitle if available
+    if (control.description) {
+        const description = document.createElement('div');
+        description.className = 'control-description';
+        description.textContent = control.description;
+        description.style.fontSize = '12px';
+        description.style.color = '#888';
+        description.style.marginTop = '4px';
+        group.appendChild(description);
+    }
+}
+
 function createControllerGroup(title) {
     const group = document.createElement('div');
     group.className = 'controller-group';
@@ -219,7 +253,7 @@ function createControllerGroup(title) {
     return group;
 }
 
-function createSlider(parent, name, ccNumber, defaultValue) {
+function createSlider(parent, name, ccNumber, defaultValue, maxValue = 127) {
     const container = document.createElement('div');
     container.className = 'slider-container';
     
@@ -240,7 +274,7 @@ function createSlider(parent, name, ccNumber, defaultValue) {
     slider.type = 'range';
     slider.className = 'slider';
     slider.min = '0';
-    slider.max = '127';
+    slider.max = maxValue.toString();
     slider.value = defaultValue;
     slider.dataset.cc = ccNumber;
     

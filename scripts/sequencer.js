@@ -285,6 +285,7 @@ function onTrackMidiMessage(data) {
 }
 
 function onGetTrackAssignment(data) {
+    console.log('=== onGetTrackAssignment called ===');
     console.log('Track assignment request:', data);
     
     try {
@@ -306,10 +307,19 @@ function onGetTrackAssignment(data) {
             return;
         }
         
-        // Send basic assignment data (without device info for now)
+        // Get actual device assignment from routing
+        let deviceInfo = null;
+        if (routing && routing.device) {
+            console.log('Found device assignment in routing:', routing.device);
+            // Get device info from deviceConfig
+            deviceInfo = deviceConfig.getDeviceInfo(routing.device);
+            console.log('Device info retrieved:', deviceInfo);
+        }
+        
+        // Send assignment data with actual device info
         const assignmentData = {
             socketID: data.socketID,
-            device: null, // Simplified - no device lookup for now
+            device: deviceInfo,
             channel: routing ? routing.channel : 0,
             trackId: trackId,
             trackNumber: parseInt(trackId) + 1
@@ -382,14 +392,30 @@ function onRoutingChange(trackId, routing) {
             }
             
             if (deviceConfig) {
-                const device = deviceConfig.getDeviceConfig(actualDeviceId);
-                console.log('Device from config:', device);
-                if (device) {
+                const configuredDevice = deviceConfig.getDeviceConfig(actualDeviceId);
+                console.log('Configured device from config:', configuredDevice);
+                if (configuredDevice) {
+                    // Get the full device data from database to access controls
+                    const fullDeviceData = deviceConfig.deviceDatabase ? deviceConfig.deviceDatabase[actualDeviceId] : null;
+                    console.log('Full device data from database:', fullDeviceData);
+                    
+                    // Filter controls based on selected controllers
+                    let availableControls = null;
+                    if (fullDeviceData && fullDeviceData.controls && configuredDevice.selectedControllers && configuredDevice.selectedControllers.length > 0) {
+                        availableControls = fullDeviceData.controls.filter(control => 
+                            configuredDevice.selectedControllers.includes(control.cc_number)
+                        );
+                        console.log('Filtered controls for track:', availableControls);
+                    } else if (fullDeviceData && fullDeviceData.controls) {
+                        console.log('No selected controllers, using all available controls');
+                        availableControls = fullDeviceData.controls;
+                    }
+                    
                     deviceInfo = {
                         id: routing.deviceId,
-                        name: device.name || 'Unknown Device',
-                        interface: device.assignedInterface,
-                        controls: device.controls || null
+                        name: configuredDevice.name || 'Unknown Device',
+                        interface: configuredDevice.assignedInterface,
+                        controls: availableControls
                     };
                     console.log('Created device info:', deviceInfo);
                 }
