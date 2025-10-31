@@ -137,11 +137,12 @@ body {
     .slider-container {
         display: flex;
         flex-direction: column;
-        margin-bottom: 0.1em;
+        margin-bottom: 5px;
         background: rgba(45, 55, 72, 0.3);
-        padding: 0.2em; /* Minimal padding for maximum slider width */
+        padding: 5px; /* Minimal padding for maximum slider width */
         border-radius: 4px;
         flex: 1; /* Make each slider container take equal space */
+        width: calc(100vw - 20px); /* MAXIMUM screen width */
     }
     
     .slider-label {
@@ -164,11 +165,12 @@ body {
     .slider {
         -webkit-appearance: none;
         appearance: none;
-        width: 100%;
-        height: 25px; /* SUPER thick slider track */
+        width: calc(100% - 10px); /* MAXIMUM width to screen edges */
+        height: 40px; /* Thicker for better touch */
         border-radius: 12px;
         background: #333;
         outline: none;
+        margin: 0 5px; /* Minimal margin to edges */
     }
     
     .slider::-webkit-slider-thumb {
@@ -208,9 +210,9 @@ body {
         flex-direction: column;
         align-items: center;
         background: rgba(45, 55, 72, 0.3);
-        padding: 0.1em; /* Minimal padding for maximum slider height */
+        padding: 5px; /* Minimal padding for maximum slider height */
         border-radius: 4px;
-        height: calc(100vh - 90px); /* Use almost entire screen height */
+        height: calc(100vh - 60px); /* Use MAXIMUM screen height */
     }
     
     .slider-label {
@@ -238,12 +240,12 @@ body {
         writing-mode: bt-lr; /* IE */
         -webkit-writing-mode: vertical-lr; /* WebKit */
         writing-mode: vertical-lr;
-        width: 25px; /* SUPER thick vertical sliders */
-        height: calc(100% - 20px); /* Take MAXIMUM remaining height */
+        width: 40px; /* Thicker for better touch */
+        height: calc(100% - 10px); /* MAXIMUM height to screen edges */
         background: #333;
         outline: none;
         border-radius: 12px;
-        margin: 0.1em 0; /* Minimal margin for maximum slider length */
+        margin: 5px 0; /* Minimal margin to top/bottom edges */
         flex: 1; /* Take up remaining space */
     }
     
