@@ -83,8 +83,10 @@ if(!initials && session) { // No initials == no socket connection
     // New message for device assignment
     socket.on('track-assignment', function(msg) {
         if(msg.socketID == mySocketID) {
-            console.log("Device assignment:", msg.device);
+            console.log("Device assignment:", msg);
             assignedDevice = msg.device;
+            midiChannel = msg.channel;
+            trackInfoElement.textContent = `Track ${msg.trackNumber}`;
             updateDeviceInterface(msg.device);
         }
     });
@@ -295,10 +297,11 @@ function createButtonGrid(parent, buttons) {
 function sendControlChange(ccNumber, value) {
     if (socket && mySocketID && midiChannel !== -1) {
         const message = [0xB0 + midiChannel, ccNumber, value];
-        socket.emit("midi message", {
+        socket.emit("track-midi-message", {
             source: "ui", 
             message: message, 
-            socketID: mySocketID
+            socketID: mySocketID,
+            timestamp: performance.now()
         });
     }
 }
@@ -327,10 +330,11 @@ function midiInToSocket(msg) {
         message = replaceMidiChannel(message, midiChannel);
     }
     
-    socket.emit("midi message", {
+    socket.emit("track-midi-message", {
         source: "midi-input", 
         message: message, 
-        socketID: mySocketID
+        socketID: mySocketID,
+        timestamp: performance.now()
     });
     
     // Show activity

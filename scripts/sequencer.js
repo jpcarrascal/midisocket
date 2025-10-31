@@ -181,6 +181,7 @@ function initializeSocket() {
     app.socket.on('track joined', onTrackJoined);
     app.socket.on('track left', onTrackLeft);
     app.socket.on('track-midi-message', onTrackMidiMessage);
+    app.socket.on('get-track-assignment', onGetTrackAssignment);
     app.socket.on('sequencer exists', onSequencerExists);
     app.socket.on('error', onSocketError);
 }
@@ -281,6 +282,52 @@ function onTrackMidiMessage(data) {
         updateStatistics();
         app.lastStatsUpdate = Date.now();
     }
+}
+
+function onGetTrackAssignment(data) {
+    console.log('Track assignment request:', data);
+    
+    // Find track information
+    const trackId = data.track.toString();
+    const routing = app.routingMatrix.getRouting(trackId);
+    const track = app.routingMatrix.getTrack(trackId);
+    
+    if (!track) {
+        console.warn('Track assignment request for unknown track:', trackId);
+        return;
+    }
+    
+    // Get device information if assigned
+    let deviceInfo = null;
+    if (routing && routing.deviceId && routing.enabled) {
+        // Get device from deviceConfig
+        if (window.deviceConfig && window.deviceConfig[routing.deviceId]) {
+            const device = window.deviceConfig[routing.deviceId];
+            deviceInfo = {
+                id: routing.deviceId,
+                name: device.name || 'Unknown Device',
+                interface: device.assignedInterface,
+                controls: device.controls || null
+            };
+        }
+    }
+    
+    // Send assignment data back to track
+    app.socket.emit('track-assignment', {
+        socketID: data.socketID,
+        device: deviceInfo,
+        channel: routing ? routing.channel : 0,
+        trackId: trackId,
+        trackNumber: parseInt(trackId) + 1
+    });
+    
+    // Also send track data for compatibility with old track.js parts
+    const colors = ['#667eea', '#ffffff']; // Default colors
+    app.socket.emit('track data', {
+        socketID: data.socketID,
+        channel: routing ? routing.channel : 0,
+        colors: colors
+    });
 }
 
 function onSequencerExists(data) {

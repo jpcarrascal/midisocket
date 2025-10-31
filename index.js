@@ -214,6 +214,21 @@ io.on('connection', (socket) => {
 
     // ===== NEW MIDI ROUTING EVENTS =====
     
+    // Track requests device assignment information
+    socket.on('request-track-assignment', (msg) => {
+        const currentSession = sessions.select(session);
+        if (currentSession) {
+            const seqID = currentSession.getSeqID();
+            if (seqID) {
+                // Forward request to sequencer to get routing information
+                io.to(seqID).emit('get-track-assignment', {
+                    socketID: msg.socketID,
+                    track: currentSession.getParticipantNumber(socket.id)
+                });
+            }
+        }
+    });
+    
     // Track sends MIDI message to be routed by sequencer
     socket.on('track-midi-message', (msg) => {
         const messageType = msg.message[0] >> 4;
