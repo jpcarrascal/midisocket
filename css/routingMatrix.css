@@ -368,8 +368,9 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 32px;
+    min-width: 48px;
     height: 32px;
+    padding: 6px 10px;
 }
 
 .action-btn:hover {

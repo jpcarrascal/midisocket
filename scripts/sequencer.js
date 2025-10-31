@@ -541,7 +541,7 @@ function createActionButtons(track) {
     // Test button
     const testBtn = document.createElement('button');
     testBtn.className = 'action-btn test-btn';
-    testBtn.innerHTML = '🎵';
+    testBtn.innerHTML = 'Test';
     testBtn.title = 'Send test note';
     testBtn.disabled = !track.enabled || track.status !== 'connected';
     
@@ -557,7 +557,7 @@ function createActionButtons(track) {
     // Panic button
     const panicBtn = document.createElement('button');
     panicBtn.className = 'action-btn panic-btn';
-    panicBtn.innerHTML = '🛑';
+    panicBtn.innerHTML = 'Panic';
     panicBtn.title = 'Send panic (all notes off)';
     panicBtn.disabled = !track.enabled || track.status !== 'connected';
     
