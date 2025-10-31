@@ -56,6 +56,7 @@ if(!initials && session) { // No initials == no socket connection
         connectionStatus.style.color = "#4ade80";
         
         // Request device assignment information
+        console.log("Requesting track assignment for socketID:", mySocketID);
         socket.emit("request-track-assignment", {socketID: mySocketID});
     });
 

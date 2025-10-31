@@ -287,47 +287,48 @@ function onTrackMidiMessage(data) {
 function onGetTrackAssignment(data) {
     console.log('Track assignment request:', data);
     
-    // Find track information
-    const trackId = data.track.toString();
-    const routing = app.routingMatrix.getRouting(trackId);
-    const track = app.routingMatrix.getTrack(trackId);
-    
-    if (!track) {
-        console.warn('Track assignment request for unknown track:', trackId);
-        return;
-    }
-    
-    // Get device information if assigned
-    let deviceInfo = null;
-    if (routing && routing.deviceId && routing.enabled) {
-        // Get device from deviceConfig
-        if (window.deviceConfig && window.deviceConfig[routing.deviceId]) {
-            const device = window.deviceConfig[routing.deviceId];
-            deviceInfo = {
-                id: routing.deviceId,
-                name: device.name || 'Unknown Device',
-                interface: device.assignedInterface,
-                controls: device.controls || null
-            };
+    try {
+        // Find track information
+        const trackId = data.track.toString();
+        const routing = app.routingMatrix ? app.routingMatrix.getRouting(trackId) : null;
+        const track = app.routingMatrix ? app.routingMatrix.getTrack(trackId) : null;
+        
+        if (!track) {
+            console.warn('Track assignment request for unknown track:', trackId);
+            // Still send a response with no device
+            app.socket.emit('track-assignment', {
+                socketID: data.socketID,
+                device: null,
+                channel: 0,
+                trackId: trackId,
+                trackNumber: parseInt(trackId) + 1
+            });
+            return;
         }
+        
+        // Send basic assignment data (without device info for now)
+        const assignmentData = {
+            socketID: data.socketID,
+            device: null, // Simplified - no device lookup for now
+            channel: routing ? routing.channel : 0,
+            trackId: trackId,
+            trackNumber: parseInt(trackId) + 1
+        };
+        
+        console.log('Sending track assignment:', assignmentData);
+        app.socket.emit('track-assignment', assignmentData);
+        
+        // Also send track data for compatibility
+        const colors = ['#667eea', '#ffffff'];
+        app.socket.emit('track data', {
+            socketID: data.socketID,
+            channel: routing ? routing.channel : 0,
+            colors: colors
+        });
+        
+    } catch (error) {
+        console.error('Error in onGetTrackAssignment:', error);
     }
-    
-    // Send assignment data back to track
-    app.socket.emit('track-assignment', {
-        socketID: data.socketID,
-        device: deviceInfo,
-        channel: routing ? routing.channel : 0,
-        trackId: trackId,
-        trackNumber: parseInt(trackId) + 1
-    });
-    
-    // Also send track data for compatibility with old track.js parts
-    const colors = ['#667eea', '#ffffff']; // Default colors
-    app.socket.emit('track data', {
-        socketID: data.socketID,
-        channel: routing ? routing.channel : 0,
-        colors: colors
-    });
 }
 
 function onSequencerExists(data) {
@@ -626,7 +627,7 @@ function createDeviceSelect(track, devices) {
             if (deviceId.startsWith('device:')) {
                 // Configured device - use assigned channel
                 const configDeviceId = parseInt(deviceId.replace('device:', ''));
-                const configuredDevice = window.deviceConfig?.getDeviceConfig(configDeviceId);
+                const configuredDevice = deviceConfig?.getDeviceConfig(configDeviceId);
                 if (configuredDevice) {
                     // Convert from 1-based (device config) to 0-based (routing matrix)
                     channel = configuredDevice.assignedChannel - 1;

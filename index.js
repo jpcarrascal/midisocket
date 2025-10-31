@@ -216,16 +216,23 @@ io.on('connection', (socket) => {
     
     // Track requests device assignment information
     socket.on('request-track-assignment', (msg) => {
+        console.log('Track requesting assignment:', msg.socketID);
         const currentSession = sessions.select(session);
         if (currentSession) {
             const seqID = currentSession.getSeqID();
+            const trackNumber = currentSession.getParticipantNumber(socket.id);
+            console.log('Forwarding to sequencer:', seqID, 'track:', trackNumber);
             if (seqID) {
                 // Forward request to sequencer to get routing information
                 io.to(seqID).emit('get-track-assignment', {
                     socketID: msg.socketID,
-                    track: currentSession.getParticipantNumber(socket.id)
+                    track: trackNumber
                 });
+            } else {
+                console.warn('No sequencer ID found for session:', session);
             }
+        } else {
+            console.warn('No session found:', session);
         }
     });
     
