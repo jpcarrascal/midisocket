@@ -529,9 +529,19 @@ function createDeviceSelect(track, devices) {
                 const option = document.createElement('option');
                 option.value = `device:${device.deviceId}`;
                 option.textContent = `${device.name} (Ch ${device.assignedChannel})`;
-                option.disabled = !device.assignedInterface;
                 
-                console.log('Device dropdown:', device.name, 'assignedInterface:', device.assignedInterface, 'disabled:', option.disabled);
+                // Check if assigned interface is valid and connected
+                const hasValidInterface = device.assignedInterface && 
+                    devices.some(d => d.id === device.assignedInterface && d.state === 'connected');
+                
+                option.disabled = !hasValidInterface;
+                
+                console.log('Device dropdown:', device.name, 
+                    'assignedInterface:', device.assignedInterface, 
+                    'hasValidInterface:', hasValidInterface, 
+                    'disabled:', option.disabled,
+                    'available devices:', devices.map(d => ({id: d.id, state: d.state}))
+                );
                 
                 if (track.deviceId === `device:${device.deviceId}`) {
                     option.selected = true;

@@ -320,7 +320,8 @@ class DeviceConfiguration {
         if (device) {
             device.assignedInterface = interfaceId;
             device.status = interfaceId ? 'configured' : 'not_configured';
-            console.log('Updated device interface:', device.name, 'Interface:', interfaceId, 'Status:', device.status);
+            console.log('Updated device interface:', device.name, 'Interface ID:', interfaceId, 'Type:', typeof interfaceId, 'Status:', device.status);
+            console.log('Available interfaces:', this.availableInterfaces);
             this.autoSaveConfiguration(); // Auto-save after updating interface
             this.updateConfigurationTable();
             
