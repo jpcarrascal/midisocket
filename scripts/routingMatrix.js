@@ -1,6 +1,6 @@
 /**
  * Routing Matrix Manager
- * Manages Track-to-MIDI device routing configurations and state
+ * Manages Track-to-MIDI interface routing configurations and state
  */
 
 class RoutingMatrix {
@@ -33,6 +33,7 @@ class RoutingMatrix {
                 deviceId: null,     // No device selected initially
                 channel: 0,         // MIDI channel 1 (0-based)
                 enabled: false,     // Disabled until device is selected
+                channelLocked: false, // Channel can be edited
                 volume: 127,        // Full volume
                 transpose: 0        // No transposition
             });
@@ -273,6 +274,7 @@ class RoutingMatrix {
                 status: track.status,
                 deviceId: routing?.deviceId || null,
                 channel: routing?.channel || 0,
+                channelLocked: routing?.channelLocked || false,
                 enabled: routing?.enabled || false,
                 volume: routing?.volume || 127,
                 transpose: routing?.transpose || 0,

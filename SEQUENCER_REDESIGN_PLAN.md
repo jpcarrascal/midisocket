@@ -1,7 +1,7 @@
 # MIDI Sequencer Redesign Plan
 
 ## Project Overview
-Redesign the Sequencer interface to act as a MIDI routing bridge between remote Track app instances and local MIDI devices connected to the computer running the Sequencer.
+Redesign the Sequencer interface to act as a MIDI routing bridge between remote Track app instances and local MIDI interfaces connected to the computer running the Sequencer.
 
 ## Current State Analysis
 - Current sequencer manages collaborative step sequencing with built-in synthesizers
@@ -10,8 +10,8 @@ Redesign the Sequencer interface to act as a MIDI routing bridge between remote 
 - Mobile-optimized track interface for remote users
 
 ## New Requirements
-1. **MIDI Bridge Functionality**: Route messages from Track apps to local MIDI devices
-2. **Per-Channel Routing**: Map each Track to specific MIDI device + channel combinations
+1. **MIDI Bridge Functionality**: Route messages from Track apps to local MIDI interfaces
+2. **Per-Channel Routing**: Map each Track to specific MIDI interface + channel combinations
 3. **Dynamic Device Detection**: Detect and list available MIDI interfaces
 4. **Routing Matrix UI**: Table/matrix interface for configuring Track-to-MIDI mappings
 5. **Real-time Updates**: Add new tracks to routing table as users join
@@ -20,7 +20,7 @@ Redesign the Sequencer interface to act as a MIDI routing bridge between remote 
 
 ### Core Components to Modify/Create
 
-#### 1. MIDI Device Management (`scripts/midiDeviceManager.js`)
+#### 1. MIDI Interface Management (`scripts/midiDeviceManager.js`)
 ```javascript
 // New module responsibilities:
 - Detect available MIDI output devices using Web MIDI API
@@ -32,7 +32,7 @@ Redesign the Sequencer interface to act as a MIDI routing bridge between remote 
 #### 2. Routing Matrix Manager (`scripts/routingMatrix.js`)
 ```javascript
 // New module responsibilities:
-- Store Track-to-MIDI device/channel mappings
+- Store Track-to-MIDI interface/channel mappings
 - Handle routing logic for incoming Track messages
 - Validate routing configurations
 - Persist routing settings (localStorage/session)
@@ -43,7 +43,7 @@ Redesign the Sequencer interface to act as a MIDI routing bridge between remote 
 <!-- Main UI elements: -->
 - Routing Matrix Table (Track rows × Device/Channel columns)
 - Device/Channel dropdown pairs for each track
-- MIDI device status indicators
+- MIDI interface status indicators
 - Session management controls
 - Real-time track connection status
 ```
@@ -51,7 +51,7 @@ Redesign the Sequencer interface to act as a MIDI routing bridge between remote 
 #### 4. Enhanced Sequencer Logic (`scripts/sequencer.js`)
 ```javascript
 // Updated responsibilities:
-- Initialize MIDI device detection
+- Initialize MIDI interface detection
 - Manage routing matrix state
 - Handle Track app connections/disconnections
 - Route MIDI messages based on matrix configuration
@@ -69,7 +69,7 @@ Redesign the Sequencer interface to act as a MIDI routing bridge between remote 
 ## Implementation Plan
 
 ### Phase 1: MIDI Infrastructure
-1. **Create MIDI Device Manager**
+1. **Create MIDI Interface Manager**
    - Implement Web MIDI API device detection
    - Create device enumeration functions
    - Handle device connection events
@@ -91,7 +91,7 @@ Redesign the Sequencer interface to act as a MIDI routing bridge between remote 
 2. **Update Sequencer HTML/CSS**
    - Replace current sequencer interface with routing matrix
    - Maintain session controls (play/pause/info)
-   - Add MIDI device status section
+   - Add MIDI interface status section
    - Ensure accessibility and usability
 
 ### Phase 3: Integration
@@ -108,7 +108,7 @@ Redesign the Sequencer interface to act as a MIDI routing bridge between remote 
    - Add real-time MIDI message routing
 
 ### Phase 4: Testing & Refinement
-1. **Test MIDI Device Integration**
+1. **Test MIDI Interface Integration**
    - Test with hardware synthesizers
    - Test with software MIDI devices
    - Verify multi-device routing

@@ -6,7 +6,7 @@ The **Actions** column contains two buttons for each connected track:
 
 ### 🎵 **Test Button**
 - **Purpose**: Sends a test MIDI note to verify the routing is working correctly
-- **What it does**: Plays a middle C (note 60) for 500ms on the track's assigned MIDI device and channel
+- **What it does**: Plays a middle C (note 60) for 500ms on the track's assigned MIDI interface and channel
 - **When to use**: After configuring device/channel routing to test the connection
 - **Status**: Only enabled when track has a device assigned and is connected
 
@@ -18,7 +18,7 @@ The **Actions** column contains two buttons for each connected track:
 
 ## How to Use
 
-1. **First**: Select a MIDI device and channel for the track
+1. **First**: Select a MIDI interface and channel for the track
 2. **Test**: Click the 🎵 button to verify MIDI is reaching your hardware
 3. **Emergency**: Use 🛑 if you need to stop all notes from that track immediately
 

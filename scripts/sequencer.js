@@ -30,8 +30,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Get DOM elements
     initializeElements();
     
+    // Debug: Check initial panel states
+    console.log('Device config panel hidden?', document.getElementById('device-config-panel')?.classList.contains('hidden'));
+    console.log('Device panel hidden?', document.getElementById('device-panel')?.classList.contains('hidden'));
+    console.log('Device selection modal hidden?', document.getElementById('device-selection-modal')?.classList.contains('hidden'));
+    
     // Initialize core components
     await initializeMidi();
+    
+    // Initialize device configuration system
+    await initializeDeviceConfiguration();
     
     // Initialize socket connection
     initializeSocket();
@@ -60,6 +68,7 @@ function initializeElements() {
         playButton: document.getElementById('play-button'),
         pauseButton: document.getElementById('pause-button'),
         panicAllButton: document.getElementById('panic-all'),
+        deviceConfigToggle: document.getElementById('device-config-toggle'),
         infoToggle: document.getElementById('info-toggle'),
         statsToggle: document.getElementById('stats-toggle'),
         
@@ -93,7 +102,7 @@ function initializeElements() {
  */
 async function initializeMidi() {
     try {
-        // Initialize MIDI Device Manager
+        // Initialize MIDI Interface Manager
         app.midiDeviceManager = new MidiDeviceManager();
         const midiSupported = await app.midiDeviceManager.initialize();
         
@@ -124,6 +133,26 @@ async function initializeMidi() {
         console.error('Failed to initialize MIDI system:', error);
         showError('Failed to initialize MIDI system: ' + error.message);
         app.elements.midiStatus.innerHTML = '<strong>Error</strong>';
+    }
+}
+
+/**
+ * Initialize device configuration system
+ */
+async function initializeDeviceConfiguration() {
+    try {
+        // Create and initialize device configuration
+        deviceConfig = new DeviceConfiguration();
+        await deviceConfig.initialize();
+        
+        // Update available interfaces when MIDI devices change
+        deviceConfig.updateAvailableInterfaces(app.midiDeviceManager.getOutputDevicesList());
+        
+        console.log('Device configuration system initialized');
+        
+    } catch (error) {
+        console.error('Failed to initialize device configuration:', error);
+        showError('Failed to initialize device configuration: ' + error.message);
     }
 }
 
@@ -163,6 +192,10 @@ function setupEventListeners() {
     app.elements.panicAllButton.addEventListener('click', onPanicAll);
     
     // Panel toggles
+    app.elements.deviceConfigToggle.addEventListener('click', () => {
+        deviceConfig.toggleVisibility();
+    });
+    
     app.elements.infoToggle.addEventListener('click', () => {
         app.elements.devicePanel.classList.toggle('hidden');
     });
@@ -262,13 +295,13 @@ function onSocketError(error) {
 // ===== MIDI EVENT HANDLERS =====
 
 function onDeviceChange(data) {
-    console.log('MIDI device change:', data);
+    console.log('MIDI interface change:', data);
     updateDeviceList();
     
     if (data.type === 'connected') {
-        showInfo('MIDI device connected: ' + data.device.name);
+        showInfo('MIDI interface connected: ' + data.device.name);
     } else if (data.type === 'disconnected') {
-        showInfo('MIDI device disconnected: ' + data.device.name);
+        showInfo('MIDI interface disconnected: ' + data.device.name);
     }
 }
 
@@ -370,7 +403,7 @@ function updateDeviceList() {
             <div class="device-item">
                 <div class="device-status-indicator disconnected"></div>
                 <div class="device-info">
-                    <div class="device-name">No MIDI devices detected</div>
+                    <div class="device-name">No MIDI interfaces detected</div>
                     <div class="device-manufacturer">Connect a MIDI interface or synthesizer</div>
                 </div>
             </div>
@@ -388,6 +421,17 @@ function updateDeviceList() {
             `;
             app.elements.deviceList.appendChild(deviceElement);
         });
+    }
+    
+    // Update device configuration with available interfaces
+    if (deviceConfig) {
+        const interfaces = devices.map(device => ({
+            id: device.id,
+            name: device.name,
+            manufacturer: device.manufacturer,
+            state: device.state
+        }));
+        deviceConfig.updateAvailableInterfaces(interfaces);
     }
 }
 
@@ -464,42 +508,91 @@ function createDeviceSelect(track, devices) {
     // Add default option
     const defaultOption = document.createElement('option');
     defaultOption.value = '';
-    defaultOption.textContent = 'Select Device...';
+    defaultOption.textContent = 'Select Output...';
     select.appendChild(defaultOption);
     
-    // Add device options
-    devices.forEach(device => {
-        const option = document.createElement('option');
-        option.value = device.id;
-        option.textContent = device.displayName;
-        option.disabled = device.state !== 'connected';
-        
-        if (track.deviceId === device.id) {
-            option.selected = true;
+    // Add configured devices first (if any)
+    if (deviceConfig) {
+        const configuredDevices = deviceConfig.getConfiguredDevices();
+        if (configuredDevices.length > 0) {
+            // Add separator
+            const separator = document.createElement('option');
+            separator.disabled = true;
+            separator.textContent = '── Configured Devices ──';
+            select.appendChild(separator);
+            
+            configuredDevices.forEach(device => {
+                const option = document.createElement('option');
+                option.value = `device:${device.deviceId}`;
+                option.textContent = `${device.name} (Ch ${device.assignedChannel})`;
+                option.disabled = !device.assignedInterface;
+                
+                if (track.deviceId === `device:${device.deviceId}`) {
+                    option.selected = true;
+                }
+                
+                select.appendChild(option);
+            });
         }
+    }
+    
+    // Add raw MIDI interfaces
+    if (devices.length > 0) {
+        // Add separator
+        const separator = document.createElement('option');
+        separator.disabled = true;
+        separator.textContent = '── MIDI Interfaces ──';
+        select.appendChild(separator);
         
-        select.appendChild(option);
-    });
+        devices.forEach(device => {
+            const option = document.createElement('option');
+            option.value = `interface:${device.id}`;
+            option.textContent = device.displayName;
+            option.disabled = device.state !== 'connected';
+            
+            if (track.deviceId === `interface:${device.id}`) {
+                option.selected = true;
+            }
+            
+            select.appendChild(option);
+        });
+    }
     
     // Event handler
     select.addEventListener('change', (e) => {
         const deviceId = e.target.value || null;
         const enabled = deviceId !== null;
         
-        app.routingMatrix.updateRouting(track.trackId, {
-            deviceId: deviceId,
-            enabled: enabled
-        });
+        let channel = track.channel || 1;
+        let channelLocked = false;
         
-        // If enabling routing, auto-assign available channel
+        // Handle different device types
         if (enabled && deviceId) {
-            const availableChannel = app.routingMatrix.getNextAvailableChannel(deviceId);
-            if (availableChannel >= 0) {
-                app.routingMatrix.updateRouting(track.trackId, {
-                    channel: availableChannel
-                });
+            if (deviceId.startsWith('device:')) {
+                // Configured device - use assigned channel
+                const configDeviceId = parseInt(deviceId.replace('device:', ''));
+                const deviceConfig = window.deviceConfig?.getDeviceConfig(configDeviceId);
+                if (deviceConfig) {
+                    // Convert from 1-based (device config) to 0-based (routing matrix)
+                    channel = deviceConfig.assignedChannel - 1;
+                    channelLocked = true;
+                }
+            } else if (deviceId.startsWith('interface:')) {
+                // Raw interface - auto-assign available channel
+                const interfaceId = deviceId.replace('interface:', '');
+                const availableChannel = app.routingMatrix.getNextAvailableChannel(interfaceId);
+                if (availableChannel >= 0) {
+                    channel = availableChannel;
+                }
             }
         }
+        
+        app.routingMatrix.updateRouting(track.trackId, {
+            deviceId: deviceId,
+            channel: channel,
+            channelLocked: channelLocked,
+            enabled: enabled
+        });
         
         updateRoutingMatrix();
     });
@@ -510,7 +603,17 @@ function createDeviceSelect(track, devices) {
 function createChannelSelect(track) {
     const select = document.createElement('select');
     select.className = 'routing-select';
-    select.disabled = !track.enabled || track.status !== 'connected';
+    
+    // Check if channel is locked (configured device)
+    const isChannelLocked = track.channelLocked || false;
+    
+    select.disabled = !track.enabled || track.status !== 'connected' || isChannelLocked;
+    
+    // Add locked indicator if needed
+    if (isChannelLocked) {
+        select.classList.add('channel-locked');
+        select.title = 'Channel locked by device configuration';
+    }
     
     // Add channel options (1-16)
     for (let i = 0; i < 16; i++) {
@@ -525,11 +628,13 @@ function createChannelSelect(track) {
         select.appendChild(option);
     }
     
-    // Event handler
-    select.addEventListener('change', (e) => {
-        const channel = parseInt(e.target.value);
-        app.routingMatrix.updateRouting(track.trackId, { channel: channel });
-    });
+    // Event handler (only if not locked)
+    if (!isChannelLocked) {
+        select.addEventListener('change', (e) => {
+            const channel = parseInt(e.target.value);
+            app.routingMatrix.updateRouting(track.trackId, { channel: channel });
+        });
+    }
     
     return select;
 }

@@ -1,6 +1,6 @@
 /**
- * MIDI Device Manager
- * Handles Web MIDI API integration for device detection and management
+ * MIDI Interface Manager
+ * Handles MIDI interface detection, management, and communication
  */
 
 class MidiDeviceManager {
@@ -41,8 +41,9 @@ class MidiDeviceManager {
         }
     }
 
-    /**
-     * Enumerate all available MIDI devices
+        /**
+     * Enumerate all available MIDI interfaces
+     * @returns {Array} Array of MIDI interface objects
      */
     enumerateDevices() {
         // Clear existing device maps
@@ -81,7 +82,7 @@ class MidiDeviceManager {
      * @param {MIDIConnectionEvent} event
      */
     handleDeviceChange(event) {
-        console.log(`MIDI device ${event.port.state}: ${event.port.name}`);
+        console.log(`MIDI interface ${event.port.state}: ${event.port.name}`);
         
         // Re-enumerate devices
         this.enumerateDevices();

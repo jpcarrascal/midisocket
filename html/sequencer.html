@@ -2,7 +2,7 @@
 <html>
   <head>
     <title>MIDI Socket - Sequencer</title>
-    <link rel="stylesheet" href="css/sequencer.css">
+    <!-- <link rel="stylesheet" href="css/sequencer.css"> -->
     <link rel="stylesheet" href="css/routingMatrix.css">
     <link rel="stylesheet" href="css/color-transitions.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=0">
@@ -17,33 +17,33 @@
   </head>
   <body>
 
-    <!-- Session Header -->
-    <div id="session-header">
-      <h1>MIDI Routing Sequencer</h1>
-      <div id="session-info">
-        <span id="session-name">Session: <strong>-</strong></span>
-        <span id="session-status">Status: <strong>Waiting...</strong></span>
-        <span id="midi-status">MIDI: <strong>Loading...</strong></span>
-      </div>
-    </div>
-
     <!-- Control Panel -->
     <div id="controls">
       <div id="session-controls">
-        <button id="play-button" class="control-btn" title="Start session for all tracks">
-          ▶️ Start Session
-        </button>
-        <button id="pause-button" class="control-btn" title="Pause session for all tracks">
-          ⏸️ Pause Session
-        </button>
-        <button id="panic-all" class="control-btn danger" title="Send panic (all notes off) to all devices">
-          🛑 Panic All
-        </button>
+        <div id="session-info">
+          <span id="session-name">Session: <strong>-</strong></span>
+          <span id="session-status">Status: <strong>Waiting...</strong></span>
+          <span id="midi-status">MIDI: <strong>Loading...</strong></span>
+        </div>
+        <div id="session-buttons">
+          <button id="play-button" class="control-btn" title="Start session for all tracks">
+            ▶️ Start Session
+          </button>
+          <button id="pause-button" class="control-btn" title="Pause session for all tracks">
+            ⏸️ Pause Session
+          </button>
+          <button id="panic-all" class="control-btn danger" title="Send panic (all notes off) to all devices">
+            🛑 Panic All
+          </button>
+        </div>
       </div>
       
       <div id="view-controls">
+        <button id="device-config-toggle" class="control-btn" title="Configure MIDI devices">
+          ⚙️ Device Config
+        </button>
         <button id="info-toggle" class="control-btn" title="Show/hide device information">
-          ℹ️ Device Info
+          ℹ️ Interface Info
         </button>
         <button id="stats-toggle" class="control-btn" title="Show/hide routing statistics">
           📊 Statistics
@@ -51,18 +51,61 @@
       </div>
     </div>
 
+    <!-- Device Configuration Panel -->
+    <div id="device-config-panel" class="panel hidden">
+      <div class="panel-header">
+        <h3>⚙️ Device Configuration</h3>
+        <button class="panel-close-btn" onclick="deviceConfig.toggleVisibility()">✕</button>
+      </div>
+      <p>Configure MIDI devices and their interface/channel assignments:</p>
+      
+      <div id="device-config-controls">
+        <button id="add-device-btn" class="control-btn">➕ Add Device</button>
+        <button id="save-config-btn" class="control-btn success">💾 Save Configuration</button>
+        <button id="load-config-btn" class="control-btn">📁 Load Configuration</button>
+      </div>
+      
+      <div id="device-config-container">
+        <table id="device-config-table">
+          <thead>
+            <tr>
+              <th>Device</th>
+              <th>MIDI Interface</th>
+              <th>MIDI Channel</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="device-config-table-body">
+            <!-- Device configuration rows will be generated here -->
+          </tbody>
+        </table>
+        
+        <div id="no-configured-devices" class="empty-state">
+          <h4>No devices configured</h4>
+          <p>Add devices from the database to configure their MIDI interface and channel assignments.</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Device Status Panel -->
-    <div id="device-panel" class="panel">
-      <h3>📱 MIDI Devices</h3>
+    <div id="device-panel" class="panel hidden">
+      <div class="panel-header">
+        <h3>📱 MIDI Interfaces</h3>
+        <button class="panel-close-btn" onclick="document.getElementById('device-panel').classList.add('hidden')">✕</button>
+      </div>
       <div id="device-status">
-        <div class="loading">Detecting MIDI devices...</div>
+        <div class="loading">Detecting MIDI interfaces...</div>
       </div>
       <div id="device-list"></div>
     </div>
 
     <!-- Statistics Panel -->
     <div id="stats-panel" class="panel hidden">
-      <h3>📊 Routing Statistics</h3>
+      <div class="panel-header">
+        <h3>📊 Routing Statistics</h3>
+        <button class="panel-close-btn" onclick="document.getElementById('stats-panel').classList.add('hidden')">✕</button>
+      </div>
       <div id="stats-content">
         <div class="stat-item">
           <label>Active Tracks:</label>
@@ -93,7 +136,7 @@
               <th>Track</th>
               <th>User</th>
               <th>Status</th>
-              <th>MIDI Device</th>
+              <th>MIDI Interface/Device</th>
               <th>Channel</th>
               <th>Actions</th>
             </tr>
@@ -121,13 +164,58 @@
       <div id="info-message" class="message info hidden"></div>
     </div>
 
+    <!-- Device Selection Modal -->
+    <div id="device-selection-modal" class="modal hidden">
+      <div class="modal-overlay" onclick="console.log('Overlay clicked'); document.getElementById('device-selection-modal').classList.add('hidden');"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Select MIDI Device</h3>
+          <button id="close-modal" class="close-btn" onclick="console.log('Close clicked'); document.getElementById('device-selection-modal').classList.add('hidden');">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="search-container">
+            <input type="text" id="device-search" placeholder="Search devices by name, manufacturer, or type...">
+          </div>
+          <div id="device-list-modal">
+            <!-- Device list will be populated here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controller Setup Modal -->
+    <div id="controller-setup-modal" class="modal hidden">
+      <div class="modal-overlay" onclick="document.getElementById('controller-setup-modal').classList.add('hidden');"></div>
+      <div class="modal-content controller-setup-content">
+        <div class="modal-header">
+          <h3 id="controller-setup-title">Setup MIDI Controllers</h3>
+          <button class="close-btn" onclick="document.getElementById('controller-setup-modal').classList.add('hidden');">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="controller-setup-info">
+            <p><strong>Select up to 8 MIDI controllers</strong> that will be available for routing:</p>
+            <p class="controller-count">Selected: <span id="selected-count">0</span> / 8</p>
+          </div>
+          <div class="controller-list-container">
+            <div id="controller-list">
+              <!-- Controller checkboxes will be populated here -->
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button id="save-controllers" class="control-btn success" onclick="deviceConfig.saveControllerSelection()">Save Controllers</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.socket.io/4.4.0/socket.io.min.js"></script>
-    <script src="scripts/include.js"></script>
     <script src="scripts/config.js"></script>
+    <script src="scripts/include.js"></script>
     <script src="scripts/midiDeviceManager.js"></script>
     <script src="scripts/routingMatrix.js"></script>
     <script src="scripts/midiRouting.js"></script>
+    <script src="scripts/deviceConfiguration.js"></script>
     <script src="scripts/sequencer.js"></script>
   </body>
 </html>
