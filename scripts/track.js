@@ -1,6 +1,12 @@
+// Track Controller - Dynamic MIDI Interface
 var initials = findGetParameter("initials");
 var session = findGetParameter("session");
 var midiChannel = -1;
+var assignedDevice = null;
+var currentControllers = {};
+var socket;
+var mySocketID;
+
 if(session === "undefined") session = null;
 if(initials === null || initials === "undefined" || initials === "") {
     if(getCookie("countmein-initials")) {
@@ -11,16 +17,17 @@ if(initials === null || initials === "undefined" || initials === "") {
         initials = null;
     }
 }
+
 setCookie("retries", 0, 1000);
 var retries = 0;
 var maxRetries = 3;
-var progSelect = document.getElementById("select-program");
-progSelect.innerHTML = Array.from({ length: 128 }, (_, i) => `<option value="${i}">${i}</option>`).join('\n  ');
-var progSelectLabel = document.getElementById("select-program-label");
-var midiInSelect = document.getElementById("select-midi-in");
-var midiInCurrent = -1;
-var midiChannelSelect = document.getElementById("select-midi-channel");
-var keys = document.getElementById("keys");
+
+// DOM Elements
+const deviceNameElement = document.getElementById("device-name");
+const trackInfoElement = document.getElementById("track-info");
+const controllerContainer = document.getElementById("controller-container");
+const connectionStatus = document.getElementById("connection-status");
+const midiActivity = document.getElementById("midi-activity");
 
 if(!initials && session) { // No initials == no socket connection
     document.getElementById("initials-form").style.display = "block";
@@ -38,20 +45,25 @@ if(!initials && session) { // No initials == no socket connection
     setCookie("countmein-initials",initials,1000);
     /* ----------- Socket set up: ------------ */
     document.getElementById("controller").style.display = "block";
-    var mySocketID;
-    var socket = io("", {query:{initials: initials, session: session}});
+    socket = io("", {query:{initials: initials, session: session}});
+    
     socket.on("connect", () => {
-        setCookie("retries", 0, 1000); retries = 0;
+        setCookie("retries", 0, 1000); 
+        retries = 0;
         console.log("Connected, my socketID:" + socket.id);
         mySocketID = socket.id;
-        // Switch to a random instrument
-        //progSelect.value = progSelect.options[Math.floor(Math.random() * progSelect.options.length)].value;
-        progSelect.value = 0;
-        setTimeout(() => {
-            progSelect.disabled = false;
-            progSelect.dispatchEvent(new Event("change"));
-        }, 500);
+        connectionStatus.textContent = "Connected";
+        connectionStatus.style.color = "#4ade80";
+        
+        // Request device assignment information
+        socket.emit("request-track-assignment", {socketID: mySocketID});
     });
+
+    socket.on("disconnect", () => {
+        connectionStatus.textContent = "Disconnected";
+        connectionStatus.style.color = "#ef4444";
+    });
+
     var body = document.querySelector("body");
     var noSleep = new NoSleep();
 
@@ -61,20 +73,30 @@ if(!initials && session) { // No initials == no socket connection
         if(msg.socketID == mySocketID) {
             console.log("My channel is: " + msg.channel);
             midiChannel = msg.channel;
-            document.getElementById("select-midi-channel").value = midiChannel;
+            trackInfoElement.textContent = `Track ${msg.channel + 1}`;
             console.log("My color is: " + msg.colors[0]);
             document.querySelector("body").style.backgroundColor = msg.colors[0];
             document.querySelector("body").style.color = msg.colors[1];
         }
     });
 
+    // New message for device assignment
+    socket.on('track-assignment', function(msg) {
+        if(msg.socketID == mySocketID) {
+            console.log("Device assignment:", msg.device);
+            assignedDevice = msg.device;
+            updateDeviceInterface(msg.device);
+        }
+    });
 
     socket.on('stop', function(msg) {
         console.log("Remote stop! " + msg.socketID);
+        // Could add visual feedback here
     });
 
     socket.on('play', function(msg) {
         console.log("Remote play! " + msg.socketID);
+        // Could add visual feedback here
     });
 
     socket.on('exit session', function(msg) {
@@ -104,115 +126,219 @@ if(!initials && session) { // No initials == no socket connection
         document.getElementById("veil").style.display = "none";
     });
 
-    /* ----------- UI handlers ------------ */
-    var mouseDown = 0;
-    document.querySelectorAll(".key").forEach(function(key) {
-        addListenerMulti(key, "touchstart mousedown", function(e) {
-            ++mouseDown;
-            e.preventDefault();
-            var note = calculateNote(this);
-            socket.emit("midi message", {source: "ui", message: [ NOTE_ON+midiChannel, note, 127], socketID: mySocketID});
-            this.style.backgroundColor = "lime";
-        });
-
-        addListenerMulti(key, "mouseup touchend mouseleave", function(e) {
-            if(mouseDown > 0) {
-                --mouseDown; if(mouseDown < 0) mouseDown = 0;
-                e.preventDefault();
-                var note = calculateNote(this);
-                socket.emit("midi message", {source: "ui", message: [ NOTE_OFF+midiChannel, note, 0], socketID: mySocketID});
-                this.style.backgroundColor = "";
-            }
-        });
-        /*
-        key.addEventListener("mouseleave", function(e) {
-            console.log("Mouse leave " + mouseDown);
-            if(mouseDown > 0) {
-                --mouseDown; if(mouseDown < 0) mouseDown = 0;
-                e.preventDefault();
-                var note = calculateNote(this);
-                socket.emit("midi message", {source: "ui", message: [NOTE_OFF, note, 0], socketID: mySocketID});
-            }
-        });
-        */
-        
-    });
-
-    document.querySelectorAll(".oct").forEach(function(oct) {
-        addListenerMulti(oct, "touchstart mousedown", function(e) {
-            e.preventDefault();
-            if(this.id == "oct-up") {
-                console.log("Octave up");
-                document.querySelectorAll(".key").forEach(function(key) {
-                    var oct = parseInt(key.getAttribute("octave"));
-                    if(oct < 9) key.setAttribute("octave", oct + 1);
-                });
-            } else {
-                console.log("Octave down");
-                document.querySelectorAll(".key").forEach(function(key) {
-                    var oct = parseInt(key.getAttribute("octave"));
-                    if(oct > 0) key.setAttribute("octave", oct - 1);
-                });
-            }
-        });
-
-    });
-
-    progSelect.addEventListener("change", function(e) {
-        var program = parseInt(this.value);
-        socket.emit("midi message", {source: "ui", message: [P_CHANGE + midiChannel, program, 0], socketID: mySocketID});
-    });
-
-    midiInSelect.addEventListener("change", function(e) {
-        var index = parseInt(this.value);
-        if(index != -1) {
-            document.querySelectorAll(".display-keys").forEach(function(elem) {
-                elem.style.visibility = "hidden";
-            });
-            if(midiInCurrent != -1) midiIns[midiInCurrent].onmidimessage = null;
-            midiIns[index].onmidimessage = midiInToSocket;
-            document.querySelector("#select-midi-channel").options[0].disabled = false;
-            document.querySelector("#select-midi-channel").options[0].selected = true;
-            midiInCurrent = index;
-        } else {
-            document.querySelectorAll(".display-keys").forEach(function(elem) {
-                elem.style.visibility = "visible";
-            });
-            if(midiInCurrent != -1) midiIns[midiInCurrent].onmidimessage = null;
-            midiInCurrent = -1;
-            document.querySelector("#select-midi-channel").options[0].disabled = true;
-            document.querySelector("#select-midi-channel").value = midiChannel;
-            
-        }
-
-        console.log(this.value)
-        //socket.emit("midi message", {source: "ui", message: [MIDI_IN, midiInIndex, 0], socketID: mySocketID});
-    });
-
-    midiChannelSelect.addEventListener("change", function(e) {
-        midiChannel = parseInt(this.value);
-    });
-
-    function calculateNote(elem) {
-        var note = parseInt(elem.getAttribute("note"));
-        var octave = parseInt(elem.getAttribute("octave"));
-        return note + (12 * octave);
-    }
-
-    function addListenerMulti(el, s, fn) {
-        s.split(' ').forEach(e => el.addEventListener(e, fn, false));
-    }
-
 }
 
-/* ----------- MIDI handler ------------ */
+/* ----------- Controller Interface Functions ------------ */
 
-function midiInToSocket (msg) {
+function updateDeviceInterface(device) {
+    if (!device) {
+        deviceNameElement.textContent = "No Device Assigned";
+        controllerContainer.innerHTML = '';
+        return;
+    }
+
+    deviceNameElement.textContent = device.name || "Unknown Device";
+    
+    // Clear existing controllers
+    controllerContainer.innerHTML = '';
+    currentControllers = {};
+
+    if (device.interface && device.interface !== "midi") {
+        // Device has specific controller mappings
+        generateDeviceControllers(device);
+    } else {
+        // Generic MIDI interface - use standard controllers
+        generateGenericControllers();
+    }
+}
+
+function generateDeviceControllers(device) {
+    // This would be implemented based on the device database structure
+    // For now, we'll use a simplified approach
+    console.log("Generating device-specific controllers for:", device.name);
+    
+    // Example: If device has specific controls defined
+    if (device.controls) {
+        device.controls.forEach(control => {
+            createController(control);
+        });
+    } else {
+        // Fallback to generic if no specific controls defined
+        generateGenericControllers();
+    }
+}
+
+function generateGenericControllers() {
+    console.log("Generating generic MIDI controllers");
+    
+    // Create controller groups
+    const expressionGroup = createControllerGroup("Expression Controls");
+    const filterGroup = createControllerGroup("Filter Controls");
+    const envelopeGroup = createControllerGroup("Envelope Controls");
+    
+    // Expression Controls
+    createSlider(expressionGroup, "Volume", 7, 100);
+    createSlider(expressionGroup, "Pan", 10, 64);
+    createSlider(expressionGroup, "Modulation", 1, 0);
+    createSlider(expressionGroup, "Expression", 11, 127);
+    
+    // Filter Controls  
+    createSlider(filterGroup, "Filter Cutoff", 74, 64);
+    createSlider(filterGroup, "Filter Resonance", 71, 64);
+    
+    // Envelope Controls
+    createSlider(envelopeGroup, "Attack", 73, 64);
+    createSlider(envelopeGroup, "Release", 72, 64);
+    
+    // Add some buttons for common functions
+    const buttonGroup = createControllerGroup("Quick Controls");
+    createButtonGrid(buttonGroup, [
+        {name: "All Notes Off", cc: 123, value: 0},
+        {name: "Reset Controllers", cc: 121, value: 0},
+        {name: "Sustain On/Off", cc: 64, toggle: true},
+        {name: "Portamento", cc: 65, toggle: true}
+    ]);
+}
+
+function createControllerGroup(title) {
+    const group = document.createElement('div');
+    group.className = 'controller-group';
+    
+    const header = document.createElement('h3');
+    header.textContent = title;
+    group.appendChild(header);
+    
+    controllerContainer.appendChild(group);
+    return group;
+}
+
+function createSlider(parent, name, ccNumber, defaultValue) {
+    const container = document.createElement('div');
+    container.className = 'slider-container';
+    
+    const label = document.createElement('div');
+    label.className = 'slider-label';
+    
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = name;
+    
+    const valueSpan = document.createElement('span');
+    valueSpan.className = 'slider-value';
+    valueSpan.textContent = defaultValue;
+    
+    label.appendChild(nameSpan);
+    label.appendChild(valueSpan);
+    
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.className = 'slider';
+    slider.min = '0';
+    slider.max = '127';
+    slider.value = defaultValue;
+    slider.dataset.cc = ccNumber;
+    
+    slider.addEventListener('input', function() {
+        const value = parseInt(this.value);
+        valueSpan.textContent = value;
+        sendControlChange(ccNumber, value);
+        showMidiActivity(`CC${ccNumber}: ${value}`);
+    });
+    
+    container.appendChild(label);
+    container.appendChild(slider);
+    parent.appendChild(container);
+    
+    currentControllers[ccNumber] = slider;
+}
+
+function createButtonGrid(parent, buttons) {
+    const container = document.createElement('div');
+    container.className = 'button-container';
+    
+    buttons.forEach(buttonConfig => {
+        const button = document.createElement('button');
+        button.className = 'midi-button';
+        button.textContent = buttonConfig.name;
+        button.dataset.cc = buttonConfig.cc;
+        
+        if (buttonConfig.toggle) {
+            let isActive = false;
+            button.addEventListener('click', function() {
+                isActive = !isActive;
+                this.classList.toggle('active', isActive);
+                const value = isActive ? 127 : 0;
+                sendControlChange(buttonConfig.cc, value);
+                showMidiActivity(`CC${buttonConfig.cc}: ${value}`);
+            });
+        } else {
+            button.addEventListener('mousedown', function() {
+                this.classList.add('active');
+                sendControlChange(buttonConfig.cc, buttonConfig.value || 127);
+                showMidiActivity(`CC${buttonConfig.cc}: ${buttonConfig.value || 127}`);
+            });
+            
+            button.addEventListener('mouseup', function() {
+                this.classList.remove('active');
+            });
+            
+            button.addEventListener('mouseleave', function() {
+                this.classList.remove('active');
+            });
+        }
+        
+        container.appendChild(button);
+    });
+    
+    parent.appendChild(container);
+}
+
+function sendControlChange(ccNumber, value) {
+    if (socket && mySocketID && midiChannel !== -1) {
+        const message = [0xB0 + midiChannel, ccNumber, value];
+        socket.emit("midi message", {
+            source: "ui", 
+            message: message, 
+            socketID: mySocketID
+        });
+    }
+}
+
+function showMidiActivity(text) {
+    midiActivity.textContent = text;
+    midiActivity.style.opacity = '1';
+    setTimeout(() => {
+        midiActivity.style.opacity = '0.5';
+    }, 500);
+}
+
+function addListenerMulti(el, s, fn) {
+    s.split(' ').forEach(e => el.addEventListener(e, fn, false));
+}
+
+/* ----------- MIDI Input Handler ------------ */
+
+function midiInToSocket(msg) {
     var message = [msg.data[0], msg.data[1], msg.data[2]];
     var incomingChannel = parseInt(msg.data[0] & 0x0F);
-    console.log("Incoming channel: " + incomingChannel);
-    if(midiChannelSelect.value != -1) {
+    console.log("Incoming MIDI channel: " + incomingChannel);
+    
+    // Route to assigned channel
+    if (midiChannel !== -1) {
         message = replaceMidiChannel(message, midiChannel);
     }
-    socket.emit("midi message", {source: "midi", message: message, socketID: mySocketID});
+    
+    socket.emit("midi message", {
+        source: "midi-input", 
+        message: message, 
+        socketID: mySocketID
+    });
+    
+    // Show activity
+    const messageType = (msg.data[0] & 0xF0) >> 4;
+    let activityText = `MIDI: Ch${incomingChannel + 1}`;
+    if (messageType === 9) activityText += " Note On";
+    else if (messageType === 8) activityText += " Note Off";
+    else if (messageType === 11) activityText += " CC";
+    
+    showMidiActivity(activityText);
 }

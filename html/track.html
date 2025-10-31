@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>MIDI Socket</title>
+    <title>MIDI Socket - Track Controller</title>
     <link rel="stylesheet" href="css/track.css">
     <link rel="stylesheet" href="css/color-transitions.css">
     <link href='https://fonts.googleapis.com/css?family=Montserrat' rel='stylesheet'>
@@ -19,96 +19,47 @@
   <body>
     <div id="veil" class="full-screen" style="display:flex">
       <div>
-        La sesión empezará en un momento...
+        Track will start in a moment...
       </div>
     </div>
 
     <div id="initials-form" class="full-screen">
-      Escribe tus nombre o iniciales (10 letras máximo):
+      Enter your name or initials (10 characters max):
       <form>
         <input type="text" id="initials" name="initials" maxlength="10" placeholder="">
-        <input type="submit" value="Enviar">
+        <input type="submit" value="Submit">
       </form>
     </div>
 
     <div id="controller" class="full-screen">
       <div id="rotate-me">
-        <!-- <span id="counterclockwise">↺</span> -->
-        <img src="images/rotatephone.gif" id="rotate" />
+        <img src="../images/rotatephone.gif" id="rotate" />
         <br/>
-        Ponme horizontal
+        Please rotate to landscape
       </div>
-      <!-- <webaudio-keyboard id="keyboard" min="48" keys="16" width="600" height="250" style="height: 100px;"></webaudio-keyboard>
-      -->
-      <div id="keyboard">
-        <div>
-          
-          <select id="select-midi-in" class="select-midi-in">
-            <option value="-1">Screen keyboard</option>
-          </select>
 
-
-          <span id="select-midi-channel-label">Channel:</span>
-          <select id="select-midi-channel">
-            <option value="-1" disabled="disabled">Keep/All</option>
-            <option value="0">1</option>
-            <option value="1">2</option>
-            <option value="2">3</option>
-            <option value="3">4</option>
-            <option value="4">5</option>
-            <option value="5">6</option>
-            <option value="6">7</option>
-            <option value="7">8</option>
-            <option value="8">9</option>
-            <option value="9">10</option>
-            <option value="10">11</option>
-            <option value="11">12</option>
-            <option value="12">13</option>
-            <option value="13">14</option>
-            <option value="14">15</option>
-            <option value="15">16</option>
-          </select>
-
-          
-          <span id="select-program-label">Program Change: </span>
-          <select id="select-program" disabled>
-            <option value="-1">MIDI</option>
-          </select>
-        </div>
-        <ul class="set display-keys" id="keys">
-          <li class="oct down" id="oct-down">◀</li>
-          <li class="key white e"  note="0" octave="5"></li>
-          <li class="key black ds" note="1" octave="5"></li>
-          <li class="key white d"  note="2" octave="5"></li>
-          <li class="key black cs" note="3" octave="5"></li>
-          <li class="key white c"  note="4" octave="5"></li>
-          <li class="key white b"  note="5" octave="5"></li>
-          <li class="key black as" note="6" octave="5"></li>
-          <li class="key white a"  note="7" octave="5"></li>
-          <li class="key black gs" note="8" octave="5"></li>
-          <li class="key white g"  note="9" octave="5"></li>
-          <li class="key black fs" note="10" octave="5"></li>
-          <li class="key white f"  note="11" octave="5"></li>
-          <li class="key white e"  note="12" octave="5"></li>
-          <li class="key black ds" note="13" octave="5"></li>
-          <li class="key white d"  note="14" octave="5"></li>
-          <li class="key black cs" note="15" octave="5"></li>
-          <li class="key white c"  note="16" octave="5"></li>
-          <li class="oct up" id="oct-up">▶</li>
-        </ul>
+      <!-- Header with device info -->
+      <div id="device-info" class="device-header">
+        <h2 id="device-name">No Device Assigned</h2>
+        <p id="track-info">Track Controller</p>
       </div>
-      <div id="drums">
 
+      <!-- Dynamic controller container -->
+      <div id="controller-container">
+        <!-- Controllers will be dynamically generated here -->
+      </div>
+
+      <!-- Status display -->
+      <div id="status" class="status-bar">
+        <span id="connection-status">Connecting...</span>
+        <span id="midi-activity"></span>
       </div>
     </div>
 
-    
     <script src="scripts/NoSleep.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="scripts/config.js"></script>
     <script src="scripts/include.js"></script>
-    <!-- <script src="scripts/webaudio-controls.js"></script> -->
-    <script src="scripts/webaudio-tinysynth.js"></script>
     <script src="scripts/midi.js"></script>
     <script src="scripts/track.js"></script>
 
