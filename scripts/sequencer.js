@@ -447,18 +447,6 @@ function createTrackRow(track, devices) {
     channelCell.appendChild(channelSelect);
     row.appendChild(channelCell);
     
-    // Volume control
-    const volumeCell = document.createElement('td');
-    const volumeControl = createVolumeControl(track);
-    volumeCell.appendChild(volumeControl);
-    row.appendChild(volumeCell);
-    
-    // Transpose control
-    const transposeCell = document.createElement('td');
-    const transposeControl = createTransposeControl(track);
-    transposeCell.appendChild(transposeControl);
-    row.appendChild(transposeCell);
-    
     // Actions
     const actionsCell = document.createElement('td');
     const actionButtons = createActionButtons(track);
@@ -544,45 +532,6 @@ function createChannelSelect(track) {
     });
     
     return select;
-}
-
-function createVolumeControl(track) {
-    const input = document.createElement('input');
-    input.type = 'range';
-    input.className = 'volume-control';
-    input.min = '0';
-    input.max = '127';
-    input.value = track.volume;
-    input.disabled = !track.enabled || track.status !== 'connected';
-    input.title = `Volume: ${track.volume}`;
-    
-    // Event handler
-    input.addEventListener('input', (e) => {
-        const volume = parseInt(e.target.value);
-        e.target.title = `Volume: ${volume}`;
-        app.routingMatrix.updateRouting(track.trackId, { volume: volume });
-    });
-    
-    return input;
-}
-
-function createTransposeControl(track) {
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.className = 'transpose-control';
-    input.min = '-24';
-    input.max = '24';
-    input.value = track.transpose;
-    input.disabled = !track.enabled || track.status !== 'connected';
-    input.title = 'Transpose (semitones)';
-    
-    // Event handler
-    input.addEventListener('change', (e) => {
-        const transpose = parseInt(e.target.value);
-        app.routingMatrix.updateRouting(track.trackId, { transpose: transpose });
-    });
-    
-    return input;
 }
 
 function createActionButtons(track) {

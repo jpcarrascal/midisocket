@@ -349,17 +349,6 @@ body {
     cursor: not-allowed;
 }
 
-.volume-control,
-.transpose-control {
-    width: 60px;
-    padding: 4px 6px;
-    border: 1px solid #cbd5e0;
-    border-radius: 4px;
-    background: white;
-    font-size: 12px;
-    text-align: center;
-}
-
 /* Action Buttons */
 .action-buttons {
     display: flex;
@@ -558,12 +547,6 @@ body {
     .routing-select {
         max-width: 100px;
         font-size: 12px;
-    }
-    
-    .volume-control,
-    .transpose-control {
-        width: 50px;
-        font-size: 11px;
     }
 }
 
