@@ -531,6 +531,8 @@ function createDeviceSelect(track, devices) {
                 option.textContent = `${device.name} (Ch ${device.assignedChannel})`;
                 option.disabled = !device.assignedInterface;
                 
+                console.log('Device dropdown:', device.name, 'assignedInterface:', device.assignedInterface, 'disabled:', option.disabled);
+                
                 if (track.deviceId === `device:${device.deviceId}`) {
                     option.selected = true;
                 }

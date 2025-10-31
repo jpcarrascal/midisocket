@@ -320,8 +320,15 @@ class DeviceConfiguration {
         if (device) {
             device.assignedInterface = interfaceId;
             device.status = interfaceId ? 'configured' : 'not_configured';
+            console.log('Updated device interface:', device.name, 'Interface:', interfaceId, 'Status:', device.status);
             this.autoSaveConfiguration(); // Auto-save after updating interface
             this.updateConfigurationTable();
+            
+            // Refresh routing matrix to update device availability
+            if (window.updateRoutingMatrix) {
+                console.log('Refreshing routing matrix after interface assignment');
+                window.updateRoutingMatrix();
+            }
         }
     }
 
