@@ -574,10 +574,10 @@ function createDeviceSelect(track, devices) {
             if (deviceId.startsWith('device:')) {
                 // Configured device - use assigned channel
                 const configDeviceId = parseInt(deviceId.replace('device:', ''));
-                const deviceConfig = window.deviceConfig?.getDeviceConfig(configDeviceId);
-                if (deviceConfig) {
+                const configuredDevice = window.deviceConfig?.getDeviceConfig(configDeviceId);
+                if (configuredDevice) {
                     // Convert from 1-based (device config) to 0-based (routing matrix)
-                    channel = deviceConfig.assignedChannel - 1;
+                    channel = configuredDevice.assignedChannel - 1;
                     channelLocked = true;
                 }
             } else if (deviceId.startsWith('interface:')) {
