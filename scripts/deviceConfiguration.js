@@ -597,6 +597,3 @@ class DeviceConfiguration {
         }
     }
 }
-
-// Global instance
-let deviceConfig = null;
