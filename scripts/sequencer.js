@@ -517,7 +517,6 @@ function createDeviceSelect(track, devices) {
     // Add configured devices first (if any)
     if (deviceConfig) {
         const configuredDevices = deviceConfig.getConfiguredDevices();
-        console.log('Found configured devices:', configuredDevices.length, configuredDevices);
         if (configuredDevices.length > 0) {
             // Add separator
             const separator = document.createElement('option');
@@ -535,13 +534,6 @@ function createDeviceSelect(track, devices) {
                     devices.some(d => d.id === device.assignedInterface && d.state === 'connected');
                 
                 option.disabled = !hasValidInterface;
-                
-                console.log('Device dropdown:', device.name, 
-                    'assignedInterface:', device.assignedInterface, 
-                    'hasValidInterface:', hasValidInterface, 
-                    'disabled:', option.disabled,
-                    'available devices:', devices.map(d => ({id: d.id, state: d.state}))
-                );
                 
                 if (track.deviceId === `device:${device.deviceId}`) {
                     option.selected = true;

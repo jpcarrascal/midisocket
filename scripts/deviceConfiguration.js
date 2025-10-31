@@ -229,12 +229,8 @@ class DeviceConfiguration {
         this.populateDeviceModal(this.elements.deviceSearch?.value || ''); // Refresh modal to show updated state
         
         // Refresh routing matrix to show new device option
-        console.log('Calling updateRoutingMatrix after adding device:', configuredDevice.name);
         if (window.updateRoutingMatrix) {
             window.updateRoutingMatrix();
-            console.log('updateRoutingMatrix called successfully');
-        } else {
-            console.error('window.updateRoutingMatrix is not available');
         }
     }
 
@@ -320,14 +316,11 @@ class DeviceConfiguration {
         if (device) {
             device.assignedInterface = interfaceId;
             device.status = interfaceId ? 'configured' : 'not_configured';
-            console.log('Updated device interface:', device.name, 'Interface ID:', interfaceId, 'Type:', typeof interfaceId, 'Status:', device.status);
-            console.log('Available interfaces:', this.availableInterfaces);
             this.autoSaveConfiguration(); // Auto-save after updating interface
             this.updateConfigurationTable();
             
             // Refresh routing matrix to update device availability
             if (window.updateRoutingMatrix) {
-                console.log('Refreshing routing matrix after interface assignment');
                 window.updateRoutingMatrix();
             }
         }
