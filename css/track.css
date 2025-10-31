@@ -77,14 +77,14 @@ body {
     font-size: 5em;
 }
 
-/* Device Info Header - Ultra Compact */
+/* Device Info Header - MINIMAL space usage */
 .device-header {
     text-align: center;
-    padding: 0.3em;
+    padding: 0.2em;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    margin-bottom: 0.3em;
-    border-radius: 6px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    margin-bottom: 0.1em;
+    border-radius: 4px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 #device-name {
@@ -99,11 +99,11 @@ body {
     color: rgba(255, 255, 255, 0.8);
 }
 
-/* Controller Container - Optimized for 8 sliders */
+/* Controller Container - MAXIMUM screen usage */
 #controller-container {
     display: none;
-    padding: 0.3em;
-    height: calc(100vh - 100px);
+    padding: 0.1em; /* Minimal padding */
+    height: calc(100vh - 80px); /* Use almost entire screen height */
     overflow: hidden;
 }
 
@@ -125,22 +125,22 @@ body {
     display: none !important; /* Hide descriptions to save space */
 }
 
-/* Portrait: Horizontal sliders in rows - BIGGER */
+/* Portrait: Horizontal sliders - MAXIMUM WIDTH */
 @media screen and (orientation: portrait) {
     #controller-container {
         display: flex;
         flex-direction: column;
-        gap: 0.2em;
-        padding: 0.2em;
+        gap: 0.1em;
+        padding: 0.1em; /* Minimal padding for maximum width */
     }
     
     .slider-container {
         display: flex;
         flex-direction: column;
-        margin-bottom: 0.2em;
+        margin-bottom: 0.1em;
         background: rgba(45, 55, 72, 0.3);
-        padding: 0.5em;
-        border-radius: 8px;
+        padding: 0.2em; /* Minimal padding for maximum slider width */
+        border-radius: 4px;
         flex: 1; /* Make each slider container take equal space */
     }
     
@@ -165,8 +165,8 @@ body {
         -webkit-appearance: none;
         appearance: none;
         width: 100%;
-        height: 12px; /* Much thicker slider track */
-        border-radius: 6px;
+        height: 25px; /* SUPER thick slider track */
+        border-radius: 12px;
         background: #333;
         outline: none;
     }
@@ -174,33 +174,33 @@ body {
     .slider::-webkit-slider-thumb {
         -webkit-appearance: none;
         appearance: none;
-        width: 32px; /* Bigger thumb */
-        height: 32px;
+        width: 50px; /* HUGE thumb */
+        height: 50px;
         border-radius: 50%;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         cursor: pointer;
-        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
     }
     
     .slider::-moz-range-thumb {
-        width: 32px;
-        height: 32px;
+        width: 50px;
+        height: 50px;
         border-radius: 50%;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         cursor: pointer;
         border: none;
-        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
     }
 }
 
-/* Landscape: Vertical sliders in grid - MUCH BIGGER */
+/* Landscape: Vertical sliders - MAXIMUM HEIGHT */
 @media screen and (orientation: landscape) {
     #controller-container {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-        gap: 0.3em;
+        grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+        gap: 0.1em; /* Minimal gap for maximum slider space */
         align-items: stretch;
-        padding: 0.2em;
+        padding: 0.1em; /* Minimal padding for maximum height */
     }
     
     .slider-container {
@@ -208,21 +208,21 @@ body {
         flex-direction: column;
         align-items: center;
         background: rgba(45, 55, 72, 0.3);
-        padding: 0.3em 0.2em;
-        border-radius: 8px;
-        height: calc(100vh - 130px); /* Much taller containers */
+        padding: 0.1em; /* Minimal padding for maximum slider height */
+        border-radius: 4px;
+        height: calc(100vh - 90px); /* Use almost entire screen height */
     }
     
     .slider-label {
         color: white;
-        font-size: 0.7em;
-        margin-bottom: 0.3em;
+        font-size: 0.6em;
+        margin-bottom: 0.1em;
         text-align: center;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 0.1em;
-        min-height: 2em;
+        gap: 0.05em;
+        min-height: 1.5em; /* Smaller label area for more slider space */
         flex-shrink: 0;
     }
     
@@ -238,34 +238,34 @@ body {
         writing-mode: bt-lr; /* IE */
         -webkit-writing-mode: vertical-lr; /* WebKit */
         writing-mode: vertical-lr;
-        width: 12px; /* Much thicker vertical sliders */
-        height: calc(100% - 60px); /* Take almost all remaining height */
+        width: 25px; /* SUPER thick vertical sliders */
+        height: calc(100% - 20px); /* Take MAXIMUM remaining height */
         background: #333;
         outline: none;
-        border-radius: 6px;
-        margin: 0.3em 0;
+        border-radius: 12px;
+        margin: 0.1em 0; /* Minimal margin for maximum slider length */
         flex: 1; /* Take up remaining space */
     }
     
     .slider::-webkit-slider-thumb {
         -webkit-appearance: none;
         appearance: none;
-        width: 32px; /* Much bigger thumb for easier touch */
-        height: 32px;
+        width: 50px; /* HUGE thumb for easier touch */
+        height: 50px;
         border-radius: 50%;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         cursor: pointer;
-        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
     }
     
     .slider::-moz-range-thumb {
-        width: 32px;
-        height: 32px;
+        width: 50px;
+        height: 50px;
         border-radius: 50%;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         cursor: pointer;
         border: none;
-        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
     }
 }
 
