@@ -517,6 +517,7 @@ function createDeviceSelect(track, devices) {
     // Add configured devices first (if any)
     if (deviceConfig) {
         const configuredDevices = deviceConfig.getConfiguredDevices();
+        console.log('Found configured devices:', configuredDevices.length, configuredDevices);
         if (configuredDevices.length > 0) {
             // Add separator
             const separator = document.createElement('option');

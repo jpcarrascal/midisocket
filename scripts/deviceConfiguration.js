@@ -229,8 +229,12 @@ class DeviceConfiguration {
         this.populateDeviceModal(this.elements.deviceSearch?.value || ''); // Refresh modal to show updated state
         
         // Refresh routing matrix to show new device option
+        console.log('Calling updateRoutingMatrix after adding device:', configuredDevice.name);
         if (window.updateRoutingMatrix) {
             window.updateRoutingMatrix();
+            console.log('updateRoutingMatrix called successfully');
+        } else {
+            console.error('window.updateRoutingMatrix is not available');
         }
     }
 
@@ -357,7 +361,7 @@ class DeviceConfiguration {
      * Get configured devices for routing
      */
     getConfiguredDevices() {
-        return this.configuredDevices.filter(d => d.assignedInterface && d.assignedChannel);
+        return this.configuredDevices;
     }
 
     /**
