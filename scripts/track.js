@@ -45,6 +45,7 @@ if(!initials && session) { // No initials == no socket connection
     setCookie("countmein-initials",initials,1000);
     /* ----------- Socket set up: ------------ */
     document.getElementById("controller").style.display = "block";
+    controllerContainer.style.display = "flex"; // Show controller container
     socket = io("", {query:{initials: initials, session: session}});
     
     socket.on("connect", () => {
