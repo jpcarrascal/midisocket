@@ -213,6 +213,8 @@ body {
         padding: 5px; /* Minimal padding for maximum slider height */
         border-radius: 4px;
         height: calc(100vh - 60px); /* Use MAXIMUM screen height */
+        transform: rotate(-90deg); /* Rotate entire container to vertical */
+        transform-origin: center; /* Rotate around center */
     }
     
     .slider-label {
@@ -237,15 +239,13 @@ body {
     .slider {
         -webkit-appearance: none;
         appearance: none;
-        width: calc(100% - 10px); /* MAXIMUM height to screen edges */
+        width: calc(100% - 10px); /* MAXIMUM width for slider track */
         height: 40px; /* Thicker for better touch */
         background: #333;
         outline: none;
         border-radius: 12px;
-        margin: 5px 0; /* Minimal margin to top/bottom edges */
+        margin: 5px 0; /* Minimal margin to edges */
         flex: 1; /* Take up remaining space */
-        transform: rotate(-90deg); /* Rotate horizontal slider to vertical */
-        transform-origin: center; /* Rotate around center */
     }
     
     .slider::-webkit-slider-thumb {
