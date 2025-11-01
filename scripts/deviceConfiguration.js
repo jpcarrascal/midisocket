@@ -148,12 +148,25 @@ class DeviceConfiguration {
         
         this.currentControllerCount = 0;
         this.updateAddControllerButton();
+        
+        // Reset modal state for creating new devices
+        const modal = document.getElementById('device-selection-modal');
+        if (modal) {
+            const modalTitle = modal.querySelector('.modal-header h3');
+            const submitButton = modal.querySelector('button[type="submit"]');
+            
+            if (modalTitle) modalTitle.textContent = 'Add New Device';
+            if (submitButton) submitButton.textContent = 'Create Device';
+        }
+        
+        // Clear editing state
+        this.editingDevice = null;
     }
 
     /**
      * Add a controller form to the modal
      */
-    addControllerForm() {
+    addControllerForm(controllerData = null) {
         if (this.currentControllerCount >= 4) return;
         
         const controllerIndex = this.currentControllerCount;
@@ -169,25 +182,25 @@ class DeviceConfiguration {
             <div class="controller-form-row">
                 <div class="form-group">
                     <label>Controller Name *</label>
-                    <input type="text" name="controllerName_${controllerIndex}" required placeholder="e.g., Volume, Filter Cutoff">
+                    <input type="text" name="controllerName_${controllerIndex}" required placeholder="e.g., Volume, Filter Cutoff" value="${controllerData?.name || ''}">
                 </div>
                 <div class="form-group">
                     <label>CC Number *</label>
-                    <input type="number" name="ccNumber_${controllerIndex}" min="0" max="127" required placeholder="0-127">
+                    <input type="number" name="ccNumber_${controllerIndex}" min="0" max="127" required placeholder="0-127" value="${controllerData?.ccNumber || ''}">
                 </div>
                 <div class="form-group">
                     <label>Type *</label>
                     <select name="ccType_${controllerIndex}" required onchange="deviceConfig.handleControllerTypeChange(${controllerIndex}, this.value)">
                         <option value="">Select type...</option>
-                        <option value="continuous">Continuous</option>
-                        <option value="discrete">Discrete</option>
+                        <option value="continuous" ${controllerData?.type === 'continuous' ? 'selected' : ''}>Continuous</option>
+                        <option value="discrete" ${controllerData?.type === 'discrete' ? 'selected' : ''}>Discrete</option>
                     </select>
                 </div>
             </div>
-            <div class="range-input-container" id="range-container-${controllerIndex}" style="display: none;">
+            <div class="range-input-container" id="range-container-${controllerIndex}" style="display: ${controllerData?.type === 'discrete' ? 'block' : 'none'};">
                 <div class="form-group">
                     <label>Range Definition</label>
-                    <textarea name="ccRange_${controllerIndex}" placeholder="e.g., Off: 0-31, On: 32-63, Auto: 64-127"></textarea>
+                    <textarea name="ccRange_${controllerIndex}" placeholder="e.g., Off: 0-31, On: 32-63, Auto: 64-127">${controllerData?.type === 'discrete' && controllerData?.range ? controllerData.range : ''}</textarea>
                     <div class="range-example">Example: "Bypass: 0-31, Reverb: 32-95, Shimmer: 96-127"</div>
                 </div>
             </div>
@@ -254,8 +267,9 @@ class DeviceConfiguration {
                 return;
             }
             
-            // Check for duplicate device name
-            if (this.configuredDevices.some(d => d.name.toLowerCase() === deviceName.toLowerCase())) {
+            // Check for duplicate device name (skip if editing the same device)
+            const existingDevice = this.configuredDevices.find(d => d.name.toLowerCase() === deviceName.toLowerCase());
+            if (existingDevice && (!this.editingDevice || existingDevice.id !== this.editingDevice.id)) {
                 this.showFormError('A device with this name already exists');
                 return;
             }
@@ -309,26 +323,38 @@ class DeviceConfiguration {
                 });
             }
             
-            // Create device object
-            const newDevice = {
-                id: this.nextDeviceId++,
-                name: deviceName,
-                color: deviceColor,
-                controllers: controllers,
-                assignedInterface: '',
-                assignedChannel: 1,
-                status: 'not_configured',
-                createdAt: new Date().toISOString()
-            };
+            if (this.editingDevice) {
+                // Update existing device
+                this.editingDevice.name = deviceName;
+                this.editingDevice.color = deviceColor;
+                this.editingDevice.controllers = controllers;
+                this.editingDevice.updatedAt = new Date().toISOString();
+                
+                console.log('Device updated successfully:', this.editingDevice);
+                this.editingDevice = null; // Clear editing state
+            } else {
+                // Create new device
+                const newDevice = {
+                    id: this.nextDeviceId++,
+                    name: deviceName,
+                    color: deviceColor,
+                    controllers: controllers,
+                    assignedInterface: '',
+                    assignedChannel: 1,
+                    status: 'not_configured',
+                    createdAt: new Date().toISOString()
+                };
+                
+                // Add to configured devices
+                this.configuredDevices.push(newDevice);
+                console.log('Device created successfully:', newDevice);
+            }
             
-            // Add to configured devices
-            this.configuredDevices.push(newDevice);
             this.autoSaveConfiguration();
             this.updateConfigurationTable();
             
-            // Hide modal and show success
+            // Hide modal
             this.hideAddDeviceModal();
-            console.log('Device created successfully:', newDevice);
             
             // Refresh routing matrix
             if (window.updateRoutingMatrix) {
@@ -698,27 +724,51 @@ class DeviceConfiguration {
     }
 
     /**
-     * Show controller setup modal for a device
+     * Show device edit modal (for custom devices, this shows the device creation form pre-filled)
      */
     showControllerSetup(deviceId) {
-        const device = this.configuredDevices.find(d => d.deviceId === deviceId);
-        const deviceData = this.deviceDatabase[deviceId];
+        const device = this.configuredDevices.find(d => d.id === deviceId);
         
-        if (!device || !deviceData) {
+        if (!device) {
             alert('Device not found.');
             return;
         }
 
-        this.currentControllerSetupDevice = device;
+        // For custom devices, show the device creation form with pre-filled data
+        this.showEditDeviceModal(device);
+    }
+
+    /**
+     * Show edit device modal with pre-filled data
+     */
+    showEditDeviceModal(device) {
+        // Pre-fill the form with existing device data
+        document.getElementById('device-name').value = device.name;
+        document.getElementById('device-color').value = device.color;
         
-        // Update modal title
-        this.elements.controllerTitle.textContent = `Setup Controllers - ${device.name}`;
+        // Clear existing controllers and reset counter
+        const container = document.getElementById('controllers-container');
+        container.innerHTML = '';
+        this.currentControllerCount = 0;
         
-        // Populate controller list
-        this.populateControllerList(deviceData.controls || [], device.selectedControllers || []);
+        // Add existing controllers
+        (device.controllers || []).forEach(controller => {
+            this.addControllerForm(controller);
+        });
+        
+        // Update modal for editing mode
+        const modal = document.getElementById('device-selection-modal');
+        const modalTitle = modal.querySelector('.modal-header h3');
+        const submitButton = modal.querySelector('button[type="submit"]');
+        
+        modalTitle.textContent = 'Edit Device';
+        submitButton.textContent = 'Update Device';
+        
+        // Store device being edited
+        this.editingDevice = device;
         
         // Show modal
-        this.elements.controllerModal?.classList.remove('hidden');
+        modal.classList.remove('hidden');
     }
 
     /**
