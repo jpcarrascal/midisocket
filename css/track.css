@@ -176,14 +176,25 @@ body {
     #controller-container {
         display: flex !important;
         flex-direction: row !important;
-        gap: 2px !important; /* Small gap to see separation */
+        gap: 2px !important;
         align-items: stretch !important;
         padding: 2px !important;
-        overflow-x: auto !important; /* Allow horizontal scroll if needed */
+        overflow-x: auto !important;
         overflow-y: hidden !important;
         width: 100% !important;
-        height: calc(100vh - 80px) !important; /* Account for header and status */
-        flex-wrap: nowrap !important; /* Force all sliders on one row */
+        height: calc(100vh - 80px) !important;
+        flex-wrap: nowrap !important;
+    }
+    
+    /* Controller groups should layout horizontally and contain sliders */
+    .controller-group {
+        display: flex !important;
+        flex-direction: row !important;
+        gap: 2px !important;
+        flex: 1 1 auto !important;
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
     }
     
     .slider-container {
@@ -194,10 +205,10 @@ body {
         padding: 3px !important;
         border-radius: 4px !important;
         height: 100% !important;
-        flex: 1 1 auto !important; /* Flexible sizing */
-        min-width: 60px !important; /* Smaller minimum to fit more */
-        width: auto !important; /* Let flex handle width */
-        border: 1px solid red !important; /* DEBUG: Temporary border to see containers */
+        flex: 1 1 auto !important;
+        min-width: 60px !important;
+        width: auto !important;
+        border: 1px solid red !important; /* DEBUG: Temporary border */
     }
     
     .slider-label {
