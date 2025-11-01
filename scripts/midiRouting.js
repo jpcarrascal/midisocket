@@ -17,6 +17,26 @@ class MidiRouter {
     }
 
     /**
+     * Resolve a device ID (handles both direct interface IDs and configured device IDs)
+     * @param {string} deviceId - Either direct interface ID or device:X format
+     * @returns {string|null} Resolved interface ID or null if not resolvable
+     */
+    resolveDeviceId(deviceId) {
+        if (!deviceId) return null;
+        
+        if (deviceId.startsWith('device:')) {
+            const configDeviceId = parseInt(deviceId.replace('device:', ''));
+            const configuredDevice = window.deviceConfig?.getDeviceConfig(configDeviceId);
+            if (configuredDevice && configuredDevice.assignedInterface) {
+                return configuredDevice.assignedInterface;
+            }
+            return null;
+        }
+        
+        return deviceId; // Direct interface ID
+    }
+
+    /**
      * Route a MIDI message from a track to its configured device
      * @param {string} trackId 
      * @param {Uint8Array} message 
@@ -41,9 +61,17 @@ class MidiRouter {
             return false;
         }
 
+        // Resolve device ID if it's a configured device
+        const actualDeviceId = this.resolveDeviceId(routing.deviceId);
+        if (!actualDeviceId) {
+            console.warn(`Cannot route message: configured device ${routing.deviceId} has no assigned interface`);
+            this.stats.routingErrors++;
+            return false;
+        }
+
         // Check if device is available
-        if (!this.deviceManager.getOutputDevice(routing.deviceId)) {
-            console.warn(`Cannot route message: device ${routing.deviceId} not available`);
+        if (!this.deviceManager.getOutputDevice(actualDeviceId)) {
+            console.warn(`Cannot route message: device ${actualDeviceId} not available`);
             this.stats.routingErrors++;
             return false;
         }
@@ -54,7 +82,7 @@ class MidiRouter {
             
             // Route to device
             const success = this.deviceManager.sendMidiMessageToChannel(
-                routing.deviceId, 
+                actualDeviceId, 
                 processedMessage, 
                 routing.channel, 
                 timestamp
@@ -181,7 +209,8 @@ class MidiRouter {
             return false;
         }
 
-        const device = this.deviceManager.getOutputDevice(routing.deviceId);
+        const actualDeviceId = this.resolveDeviceId(routing.deviceId);
+        const device = this.deviceManager.getOutputDevice(actualDeviceId);
         if (!device || device.state !== 'connected') {
             return false;
         }
