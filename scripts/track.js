@@ -168,12 +168,12 @@ function generateDeviceControllers(device) {
     if (device.controls && device.controls.length > 0) {
         let controlsToShow = device.controls;
         
-        // If no controllers have been specifically selected, show only the first 8
+        // If no controllers have been specifically selected, show only the first 4
         if (!device.selectedControllers || device.selectedControllers.length === 0) {
-            controlsToShow = device.controls.slice(0, 8);
-            console.log(`No controllers configured, showing first 8 of ${device.controls.length} available`);
+            controlsToShow = device.controls.slice(0, 4);
+            console.log(`No controllers configured, showing first 4 of ${device.controls.length} available`);
         } else {
-            // Show only selected controllers (max 8)
+            // Show only selected controllers (max 4)
             controlsToShow = device.controls.filter(control => 
                 device.selectedControllers.includes(control.cc_number)
             );

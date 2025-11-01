@@ -499,7 +499,7 @@ class DeviceConfiguration {
 
         this.elements.controllerList.innerHTML = controls.map((controller, index) => {
             const isSelected = selectedControllers.includes(controller.cc_number);
-            const isDisabled = !isSelected && selectedCount >= 8;
+            const isDisabled = !isSelected && selectedCount >= 4;
             
             return `
                 <div class="controller-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}" 
@@ -541,7 +541,7 @@ class DeviceConfiguration {
 
         if (isChecked) {
             // Add controller if not already selected and under limit
-            if (!device.selectedControllers.includes(ccNumber) && device.selectedControllers.length < 8) {
+            if (!device.selectedControllers.includes(ccNumber) && device.selectedControllers.length < 4) {
                 device.selectedControllers.push(ccNumber);
             }
         } else {
@@ -587,7 +587,7 @@ class DeviceConfiguration {
             
             // Update checkbox state
             checkbox.checked = isSelected;
-            checkbox.disabled = !isSelected && selectedCount >= 8;
+            checkbox.disabled = !isSelected && selectedCount >= 4;
         });
     }
 }
