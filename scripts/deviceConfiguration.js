@@ -232,6 +232,21 @@ class DeviceConfiguration {
     }
 
     /**
+     * Show confirmation dialog before removing device
+     */
+    confirmRemoveDevice(deviceId) {
+        const device = this.configuredDevices.find(d => d.deviceId === deviceId);
+        if (!device) return;
+
+        const deviceName = `${device.name} (${device.manufacturer})`;
+        const message = `Are you sure you want to remove "${deviceName}" from the configuration?\n\nThis will disconnect any tracks currently using this device.`;
+        
+        if (confirm(message)) {
+            this.removeDevice(deviceId);
+        }
+    }
+
+    /**
      * Remove device from configuration
      */
     removeDevice(deviceId) {
@@ -297,7 +312,7 @@ class DeviceConfiguration {
                     <button class="control-btn small" onclick="deviceConfig.showControllerSetup(${device.deviceId})" title="Setup MIDI controllers">
                         ⚙️ Setup
                     </button>
-                    <button class="control-btn small danger" onclick="deviceConfig.removeDevice(${device.deviceId})" title="Remove device">
+                    <button class="control-btn small danger" onclick="deviceConfig.confirmRemoveDevice(${device.deviceId})" title="Remove device">
                         🗑️ Remove
                     </button>
                 </td>
