@@ -462,20 +462,60 @@ class DeviceConfiguration {
     }
 
     /**
-     * Save configuration to localStorage (with user feedback)
+     * Download configuration as JSON file
      */
     saveConfiguration() {
         try {
+            // Enhance device data with complete information from database
+            const enhancedDevices = this.configuredDevices.map(device => {
+                const originalDevice = this.deviceDatabase[device.deviceId];
+                return {
+                    ...device,
+                    // Include additional device database info for completeness
+                    originalDatabaseEntry: originalDevice ? {
+                        controls: originalDevice.controls || [],
+                        midi_clock: originalDevice.midi_clock || {},
+                        midi_channel: originalDevice.midi_channel || {},
+                        description: originalDevice.description || '',
+                        manual_url: originalDevice.manual_url || ''
+                    } : null
+                };
+            });
+
             const config = {
                 version: 1,
-                devices: this.configuredDevices,
-                timestamp: new Date().toISOString()
+                devices: enhancedDevices,
+                timestamp: new Date().toISOString(),
+                exportedBy: 'MidiSocket Device Configuration',
+                deviceCount: this.configuredDevices.length
             };
-            localStorage.setItem('midiDeviceConfiguration', JSON.stringify(config));
-            alert('Configuration saved successfully!');
+            
+            // Create JSON blob
+            const jsonString = JSON.stringify(config, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            
+            // Create download link
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // Generate filename with timestamp
+            const now = new Date();
+            const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            a.download = `midisocket-config-${timestamp}.json`;
+            
+            // Trigger download
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            // Clean up
+            URL.revokeObjectURL(url);
+            
+            console.log('Configuration exported successfully:', a.download);
         } catch (error) {
-            console.error('Failed to save configuration:', error);
-            alert('Failed to save configuration.');
+            console.error('Failed to export configuration:', error);
+            alert('Failed to download configuration file.');
         }
     }
 
