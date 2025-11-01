@@ -41,6 +41,17 @@ class DeviceConfiguration {
         this.attachEventListeners();
         this.loadConfiguration();
         this.updateConfigurationTable();
+        
+        // Debug: Log loaded devices
+        console.log('=== Device Configuration Loaded ===');
+        console.log('Number of devices:', this.configuredDevices.length);
+        this.configuredDevices.forEach(device => {
+            console.log(`Device "${device.name}" (ID: ${device.id}):`, {
+                controllers: device.controllers,
+                controllerCount: device.controllers?.length
+            });
+        });
+        
         console.log('Device configuration system initialized');
     }
 
@@ -348,6 +359,7 @@ class DeviceConfiguration {
                 // Add to configured devices
                 this.configuredDevices.push(newDevice);
                 console.log('Device created successfully:', newDevice);
+                console.log('Device controllers array:', newDevice.controllers);
             }
             
             this.autoSaveConfiguration();
@@ -609,6 +621,23 @@ class DeviceConfiguration {
      */
     getDeviceConfig(deviceId) {
         return this.configuredDevices.find(d => d.id === deviceId);
+    }
+
+    /**
+     * Get device information (handles both numeric IDs and "device:X" format)
+     */
+    getDeviceInfo(deviceId) {
+        let actualDeviceId = deviceId;
+        
+        // Handle "device:X" format
+        if (typeof deviceId === 'string' && deviceId.startsWith('device:')) {
+            actualDeviceId = parseInt(deviceId.replace('device:', ''));
+        }
+        
+        const device = this.getDeviceConfig(actualDeviceId);
+        console.log('getDeviceInfo returning device:', device?.name, 'controllers:', device?.controllers?.length);
+        
+        return device;
     }
 
     /**

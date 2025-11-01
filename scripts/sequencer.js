@@ -317,6 +317,8 @@ function onGetTrackAssignment(data) {
             // Get device info from deviceConfig
             deviceInfo = deviceConfig.getDeviceInfo(routing.device);
             console.log('Device info retrieved:', deviceInfo);
+            console.log('Device controllers from deviceConfig:', deviceInfo?.controllers);
+            console.log('Device controls from deviceConfig:', deviceInfo?.controls);
         }
         
         // Send assignment data with actual device info

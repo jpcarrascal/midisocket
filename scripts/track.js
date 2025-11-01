@@ -145,19 +145,22 @@ function updateDeviceInterface(device) {
         return;
     }
 
+    console.log("Track received device:", device.name, "with controllers:", device.controllers);
     deviceNameElement.textContent = device.name || "Unknown Device";
     
     // Clear existing controllers
     controllerContainer.innerHTML = '';
     currentControllers = {};
 
-    if (device.controls && device.controls.length > 0) {
-        // Device has specific controller mappings
-        console.log("Device has controls, generating device-specific interface");
+    if ((device.controllers && device.controllers.length > 0) || (device.controls && device.controls.length > 0)) {
+        // Device has specific controller mappings (either new custom format or old database format)
+        console.log("Device has controllers, generating device-specific interface");
+        console.log("Will call generateDeviceControllers with:", device);
         generateDeviceControllers(device);
     } else {
         // Generic MIDI interface - use standard controllers
-        console.log("No device controls found, using generic interface");
+        console.log("No device controllers found, using generic interface");
+        console.log("Falling back to generic controllers");
         generateGenericControllers();
     }
 }
