@@ -399,13 +399,19 @@ class DeviceConfiguration {
      * Show confirmation dialog before removing device
      */
     confirmRemoveDevice(deviceId) {
-        const device = this.configuredDevices.find(d => d.id === deviceId);
-        if (!device) return;
+        // Convert to number to ensure proper comparison
+        const numericDeviceId = parseInt(deviceId);
+        const device = this.configuredDevices.find(d => d.id === numericDeviceId);
+        
+        if (!device) {
+            console.error('Device not found for removal:', numericDeviceId);
+            return;
+        }
 
         const message = `Are you sure you want to remove "${device.name}" from the configuration?\n\nThis will disconnect any tracks currently using this device.`;
         
         if (confirm(message)) {
-            this.removeDevice(deviceId);
+            this.removeDevice(numericDeviceId);
         }
     }
 
@@ -672,10 +678,11 @@ class DeviceConfiguration {
             const configStr = localStorage.getItem('midiDeviceConfiguration');
             if (configStr) {
                 const config = JSON.parse(configStr);
-                this.configuredDevices = (config.devices || []).map(device => {
+                this.configuredDevices = (config.devices || []).map((device, index) => {
                     // Migration: ensure all devices have required properties
+                    const deviceId = device.id || device.deviceId || (this.nextDeviceId + index);
                     return {
-                        id: device.id || device.deviceId || 1, // Handle old deviceId format
+                        id: parseInt(deviceId), // Ensure it's a number
                         name: device.name || 'Unknown Device',
                         color: device.color || '#4a90e2',
                         controllers: device.controllers || [], // Ensure controllers array exists
@@ -684,7 +691,15 @@ class DeviceConfiguration {
                         status: device.status || 'not_configured'
                     };
                 });
+                
+                // Update nextDeviceId to avoid conflicts with existing devices
+                if (this.configuredDevices.length > 0) {
+                    const maxId = Math.max(...this.configuredDevices.map(d => d.id));
+                    this.nextDeviceId = maxId + 1;
+                }
+                
                 console.log('Loaded device configuration:', this.configuredDevices);
+                console.log('Next device ID set to:', this.nextDeviceId);
             }
         } catch (error) {
             console.error('Failed to load configuration:', error);
