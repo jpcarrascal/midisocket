@@ -404,9 +404,9 @@ html {
 }
 
 .routing-select.channel-locked {
-    background: #fef5e7;
-    border-color: #f6ad55;
-    color: #c05621;
+    background: #f7fafc;
+    border-color: #e2e8f0;
+    color: #718096;
 }
 
 /* Action Buttons */
