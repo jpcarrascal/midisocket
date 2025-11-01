@@ -352,17 +352,28 @@ class DeviceConfiguration {
         }
 
         const deviceIdString = `device:${deviceId}`;
+        const updatedDevice = this.getDeviceConfig(deviceId);
         
-        // Find all tracks using this device
+        if (!updatedDevice) {
+            console.log(`Device ${deviceId} not found in configuration`);
+            return;
+        }
+
+        // Find all tracks using this device and update their routing
         const allRoutings = window.app.routingMatrix.getAllRoutings();
         for (const [trackId, routing] of allRoutings) {
             if (routing.deviceId === deviceIdString && routing.enabled) {
-                console.log(`Notifying track ${trackId} of device ${deviceId} configuration change`);
+                console.log(`Updating routing for track ${trackId} with new device ${deviceId} configuration`);
                 
-                // Trigger the routing change callback to update the track
-                if (window.app.routingMatrix.routingChangeCallback) {
-                    window.app.routingMatrix.routingChangeCallback(trackId, routing);
-                }
+                // Update the routing matrix with the new channel from device config
+                // Convert from 1-based (device config) to 0-based (routing matrix)
+                const newChannel = updatedDevice.assignedChannel - 1;
+                
+                window.app.routingMatrix.updateRouting(trackId, {
+                    channel: newChannel
+                });
+                
+                // Note: The updateRouting call will automatically trigger the routing change callback
             }
         }
     }
