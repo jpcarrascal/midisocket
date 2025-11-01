@@ -65,8 +65,8 @@
       <p>Configure MIDI devices and their interface/channel assignments:</p>
       
       <div id="device-config-controls">
-        <button id="add-device-btn" class="control-btn">➕ Add Device</button>
-        <button id="save-config-btn" class="control-btn success">� Download Configuration</button>
+        <button id="add-device-btn" class="control-btn">➕ Add New Device</button>
+        <button id="save-config-btn" class="control-btn success">📥 Download Configuration</button>
         <button id="load-config-btn" class="control-btn">📁 Load Configuration</button>
       </div>
       
@@ -169,21 +169,46 @@
       <div id="info-message" class="message info hidden"></div>
     </div>
 
-    <!-- Device Selection Modal -->
+    <!-- Add New Device Modal -->
     <div id="device-selection-modal" class="modal hidden">
-      <div class="modal-overlay" onclick="console.log('Overlay clicked'); document.getElementById('device-selection-modal').classList.add('hidden');"></div>
-      <div class="modal-content">
+      <div class="modal-overlay" onclick="document.getElementById('device-selection-modal').classList.add('hidden');"></div>
+      <div class="modal-content add-device-content">
         <div class="modal-header">
-          <h3>Select MIDI Device</h3>
-          <button id="close-modal" class="close-btn" onclick="console.log('Close clicked'); document.getElementById('device-selection-modal').classList.add('hidden');">✕</button>
+          <h3>Add New Device</h3>
+          <button id="close-modal" class="close-btn" onclick="document.getElementById('device-selection-modal').classList.add('hidden');">✕</button>
         </div>
         <div class="modal-body">
-          <div class="search-container">
-            <input type="text" id="device-search" placeholder="Search devices by name, manufacturer, or type...">
-          </div>
-          <div id="device-list-modal">
-            <!-- Device list will be populated here -->
-          </div>
+          <form id="add-device-form">
+            <!-- Device Basic Info -->
+            <div class="form-section">
+              <h4>Device Information</h4>
+              <div class="form-group">
+                <label for="device-name">Device Name *</label>
+                <input type="text" id="device-name" name="deviceName" required placeholder="Enter device name...">
+              </div>
+              <div class="form-group">
+                <label for="device-color">Device Color *</label>
+                <input type="color" id="device-color" name="deviceColor" value="#4a90e2" required>
+                <span class="color-preview" id="color-preview"></span>
+              </div>
+            </div>
+
+            <!-- MIDI Controllers Section -->
+            <div class="form-section">
+              <h4>MIDI Controllers</h4>
+              <p class="section-description">Define up to 4 MIDI controllers for this device:</p>
+              <div id="controllers-container">
+                <!-- Controllers will be added dynamically -->
+              </div>
+              <button type="button" id="add-controller-btn" class="control-btn small">➕ Add Controller</button>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="form-actions">
+              <button type="button" class="control-btn" onclick="document.getElementById('device-selection-modal').classList.add('hidden');">Cancel</button>
+              <button type="submit" class="control-btn success">Create Device</button>
+            </div>
+          </form>
         </div>
       </div>
     </div>

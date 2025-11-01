@@ -5,10 +5,9 @@
 
 class DeviceConfiguration {
     constructor() {
-        this.deviceDatabase = []; // Loaded from JSON
-        this.configuredDevices = []; // User-configured devices
+        this.configuredDevices = []; // User-configured custom devices
         this.availableInterfaces = []; // From MIDI system
-        this.currentControllerSetupDevice = null; // Currently editing device controllers
+        this.nextDeviceId = 1; // Auto-increment ID for new devices
         
         this.elements = {
             configPanel: null,
@@ -19,12 +18,18 @@ class DeviceConfiguration {
             saveConfigBtn: null,
             loadConfigBtn: null,
             modal: null,
-            deviceSearch: null,
-            deviceListModal: null,
-            closeModal: null
+            addDeviceForm: null,
+            closeModal: null,
+            // Form elements
+            deviceName: null,
+            deviceColor: null,
+            colorPreview: null,
+            controllersContainer: null,
+            addControllerBtn: null
         };
         
         this.isVisible = false;
+        this.currentControllerCount = 0;
     }
 
     /**
@@ -34,14 +39,9 @@ class DeviceConfiguration {
         console.log('Initializing device configuration system...');
         this.initializeElements();
         this.attachEventListeners();
-        await this.loadDeviceDatabase();
         this.loadConfiguration();
         this.updateConfigurationTable();
         console.log('Device configuration system initialized');
-        
-        // Debug: Check if modal is somehow visible
-        console.log('Modal element found:', !!this.elements.modal);
-        console.log('Modal hidden class:', this.elements.modal?.classList.contains('hidden'));
     }
 
     /**
@@ -56,15 +56,15 @@ class DeviceConfiguration {
         this.elements.saveConfigBtn = document.getElementById('save-config-btn');
         this.elements.loadConfigBtn = document.getElementById('load-config-btn');
         this.elements.modal = document.getElementById('device-selection-modal');
-        this.elements.deviceSearch = document.getElementById('device-search');
-        this.elements.deviceListModal = document.getElementById('device-list-modal');
         this.elements.closeModal = document.getElementById('close-modal');
         
-        // Controller setup modal elements
-        this.elements.controllerModal = document.getElementById('controller-setup-modal');
-        this.elements.controllerTitle = document.getElementById('controller-setup-title');
-        this.elements.controllerList = document.getElementById('controller-list');
-        this.elements.selectedCount = document.getElementById('selected-count');
+        // New form elements
+        this.elements.addDeviceForm = document.getElementById('add-device-form');
+        this.elements.deviceName = document.getElementById('device-name');
+        this.elements.deviceColor = document.getElementById('device-color');
+        this.elements.colorPreview = document.getElementById('color-preview');
+        this.elements.controllersContainer = document.getElementById('controllers-container');
+        this.elements.addControllerBtn = document.getElementById('add-controller-btn');
     }
 
     /**
@@ -72,174 +72,311 @@ class DeviceConfiguration {
      */
     attachEventListeners() {
         // Configuration controls
-        this.elements.addDeviceBtn?.addEventListener('click', () => this.showDeviceSelectionModal());
+        this.elements.addDeviceBtn?.addEventListener('click', () => this.showAddDeviceModal());
         this.elements.saveConfigBtn?.addEventListener('click', () => this.saveConfiguration());
         this.elements.loadConfigBtn?.addEventListener('click', () => this.loadConfigurationFile());
         
         // Modal controls
         this.elements.closeModal?.addEventListener('click', (e) => {
             e.preventDefault();
-            console.log('Close button clicked');
-            this.hideDeviceSelectionModal();
+            this.hideAddDeviceModal();
         });
         
         this.elements.modal?.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal-overlay') || e.target === this.elements.modal) {
-                console.log('Modal overlay clicked');
-                this.hideDeviceSelectionModal();
+                this.hideAddDeviceModal();
             }
         });
         
-        // Search functionality
-        this.elements.deviceSearch?.addEventListener('input', (e) => this.filterDevices(e.target.value));
+        // Form controls
+        this.elements.addDeviceForm?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleCreateDevice();
+        });
+        
+        this.elements.deviceColor?.addEventListener('input', (e) => {
+            if (this.elements.colorPreview) {
+                this.elements.colorPreview.style.backgroundColor = e.target.value;
+            }
+        });
+        
+        this.elements.addControllerBtn?.addEventListener('click', () => this.addControllerForm());
         
         // Keyboard support
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && !this.elements.modal?.classList.contains('hidden')) {
-                this.hideDeviceSelectionModal();
+                this.hideAddDeviceModal();
             }
         });
     }
 
     /**
-     * Load device database from JSON
+     * Show add device modal
      */
-    async loadDeviceDatabase() {
-        try {
-            const response = await fetch('scripts/midi_devices.json');
-            this.deviceDatabase = await response.json();
-            console.log(`Loaded ${this.deviceDatabase.length} devices from database`);
-        } catch (error) {
-            console.error('Failed to load device database:', error);
-            this.deviceDatabase = [];
-        }
-    }
-
-    /**
-     * Show device selection modal
-     */
-    showDeviceSelectionModal() {
-        console.log('Showing device selection modal');
-        this.populateDeviceModal();
+    showAddDeviceModal() {
+        console.log('Showing add device modal');
+        this.resetAddDeviceForm();
         this.elements.modal?.classList.remove('hidden');
     }
 
     /**
-     * Hide device selection modal
+     * Hide add device modal
      */
-    hideDeviceSelectionModal() {
-        console.log('Hiding device selection modal');
+    hideAddDeviceModal() {
+        console.log('Hiding add device modal');
         this.elements.modal?.classList.add('hidden');
-        if (this.elements.deviceSearch) {
-            this.elements.deviceSearch.value = '';
-        }
+        this.resetAddDeviceForm();
     }
 
     /**
-     * Populate device selection modal
+     * Reset the add device form
      */
-    populateDeviceModal(filter = '') {
-        if (!this.elements.deviceListModal) return;
+    resetAddDeviceForm() {
+        if (this.elements.addDeviceForm) {
+            this.elements.addDeviceForm.reset();
+        }
+        
+        // Reset color preview
+        if (this.elements.colorPreview && this.elements.deviceColor) {
+            this.elements.colorPreview.style.backgroundColor = this.elements.deviceColor.value;
+        }
+        
+        // Clear controllers
+        if (this.elements.controllersContainer) {
+            this.elements.controllersContainer.innerHTML = '';
+        }
+        
+        this.currentControllerCount = 0;
+        this.updateAddControllerButton();
+    }
 
-        const filteredDevices = this.deviceDatabase.filter(device => {
-            const searchText = filter.toLowerCase();
-            return device.name.toLowerCase().includes(searchText) ||
-                   device.manufacturer.toLowerCase().includes(searchText) ||
-                   device.type.toLowerCase().includes(searchText);
-        });
-
-        this.elements.deviceListModal.innerHTML = filteredDevices.map(device => {
-            const deviceIndex = this.deviceDatabase.indexOf(device);
-            const isConfigured = this.configuredDevices.find(d => d.deviceId === deviceIndex);
-            
-            return `
-                <div class="device-item-modal ${isConfigured ? 'device-configured' : ''}" data-device-id="${deviceIndex}">
-                    <div class="device-checkbox">
-                        <input type="checkbox" ${isConfigured ? 'checked' : ''} 
-                               onchange="deviceConfig.toggleDevice(${deviceIndex}, this.checked)">
-                    </div>
-                    <div class="device-info-modal">
-                        <div class="device-name-modal">${device.name}</div>
-                        <div class="device-details-modal">
-                            <span class="manufacturer">${device.manufacturer}</span>
-                            <span class="type">${device.type}</span>
-                            <span class="default-channel">Default Ch: ${device.midi_channel?.default_channel || 'N/A'}</span>
-                        </div>
-                    </div>
+    /**
+     * Add a controller form to the modal
+     */
+    addControllerForm() {
+        if (this.currentControllerCount >= 4) return;
+        
+        const controllerIndex = this.currentControllerCount;
+        const controllerForm = document.createElement('div');
+        controllerForm.className = 'controller-form';
+        controllerForm.dataset.index = controllerIndex;
+        
+        controllerForm.innerHTML = `
+            <div class="controller-form-header">
+                <h5 class="controller-form-title">Controller ${controllerIndex + 1}</h5>
+                <button type="button" class="remove-controller-btn" onclick="deviceConfig.removeControllerForm(${controllerIndex})">Remove</button>
+            </div>
+            <div class="controller-form-row">
+                <div class="form-group">
+                    <label>Controller Name *</label>
+                    <input type="text" name="controllerName_${controllerIndex}" required placeholder="e.g., Volume, Filter Cutoff">
                 </div>
-            `;
-        }).join('');
+                <div class="form-group">
+                    <label>CC Number *</label>
+                    <input type="number" name="ccNumber_${controllerIndex}" min="0" max="127" required placeholder="0-127">
+                </div>
+                <div class="form-group">
+                    <label>Type *</label>
+                    <select name="ccType_${controllerIndex}" required onchange="deviceConfig.handleControllerTypeChange(${controllerIndex}, this.value)">
+                        <option value="">Select type...</option>
+                        <option value="continuous">Continuous</option>
+                        <option value="discrete">Discrete</option>
+                    </select>
+                </div>
+            </div>
+            <div class="range-input-container" id="range-container-${controllerIndex}" style="display: none;">
+                <div class="form-group">
+                    <label>Range Definition</label>
+                    <textarea name="ccRange_${controllerIndex}" placeholder="e.g., Off: 0-31, On: 32-63, Auto: 64-127"></textarea>
+                    <div class="range-example">Example: "Bypass: 0-31, Reverb: 32-95, Shimmer: 96-127"</div>
+                </div>
+            </div>
+        `;
+        
+        this.elements.controllersContainer.appendChild(controllerForm);
+        this.currentControllerCount++;
+        this.updateAddControllerButton();
     }
 
     /**
-     * Filter devices in modal
+     * Remove a controller form
      */
-    filterDevices(filter) {
-        this.populateDeviceModal(filter);
+    removeControllerForm(index) {
+        const controllerForm = this.elements.controllersContainer.querySelector(`[data-index="${index}"]`);
+        if (controllerForm) {
+            controllerForm.remove();
+            this.currentControllerCount--;
+            this.updateAddControllerButton();
+        }
     }
 
     /**
-     * Toggle device selection via checkbox
+     * Handle controller type change
      */
-    toggleDevice(deviceIndex, checked) {
-        if (checked) {
-            this.addDevice(deviceIndex);
-        } else {
-            this.removeDevice(deviceIndex);
+    handleControllerTypeChange(index, type) {
+        const rangeContainer = document.getElementById(`range-container-${index}`);
+        if (rangeContainer) {
+            if (type === 'discrete') {
+                rangeContainer.style.display = 'block';
+                rangeContainer.querySelector('textarea').required = true;
+            } else {
+                rangeContainer.style.display = 'none';
+                rangeContainer.querySelector('textarea').required = false;
+                rangeContainer.querySelector('textarea').value = type === 'continuous' ? '0-127' : '';
+            }
+        }
+    }
+
+    /**
+     * Update add controller button state
+     */
+    updateAddControllerButton() {
+        if (this.elements.addControllerBtn) {
+            this.elements.addControllerBtn.disabled = this.currentControllerCount >= 4;
+            this.elements.addControllerBtn.textContent = 
+                this.currentControllerCount >= 4 ? '✓ Maximum Controllers Added' : '➕ Add Controller';
+        }
+    }
+
+    /**
+     * Handle form submission to create new device
+     */
+    handleCreateDevice() {
+        try {
+            // Collect form data
+            const formData = new FormData(this.elements.addDeviceForm);
+            const deviceName = formData.get('deviceName')?.trim();
+            const deviceColor = formData.get('deviceColor');
+            
+            // Validate basic fields
+            if (!deviceName) {
+                this.showFormError('Device name is required');
+                return;
+            }
+            
+            // Check for duplicate device name
+            if (this.configuredDevices.some(d => d.name.toLowerCase() === deviceName.toLowerCase())) {
+                this.showFormError('A device with this name already exists');
+                return;
+            }
+            
+            // Collect controllers
+            const controllers = [];
+            const usedCCNumbers = new Set();
+            
+            for (let i = 0; i < this.currentControllerCount; i++) {
+                const controllerName = formData.get(`controllerName_${i}`)?.trim();
+                const ccNumber = parseInt(formData.get(`ccNumber_${i}`));
+                const ccType = formData.get(`ccType_${i}`);
+                const ccRange = formData.get(`ccRange_${i}`)?.trim();
+                
+                // Skip empty controller forms
+                if (!controllerName && !ccNumber && !ccType) continue;
+                
+                // Validate controller data
+                if (!controllerName) {
+                    this.showFormError(`Controller ${i + 1}: Name is required`);
+                    return;
+                }
+                
+                if (isNaN(ccNumber) || ccNumber < 0 || ccNumber > 127) {
+                    this.showFormError(`Controller ${i + 1}: CC number must be between 0-127`);
+                    return;
+                }
+                
+                if (usedCCNumbers.has(ccNumber)) {
+                    this.showFormError(`Controller ${i + 1}: CC number ${ccNumber} is already used`);
+                    return;
+                }
+                
+                if (!ccType) {
+                    this.showFormError(`Controller ${i + 1}: Type is required`);
+                    return;
+                }
+                
+                if (ccType === 'discrete' && !ccRange) {
+                    this.showFormError(`Controller ${i + 1}: Range definition is required for discrete controllers`);
+                    return;
+                }
+                
+                usedCCNumbers.add(ccNumber);
+                
+                controllers.push({
+                    name: controllerName,
+                    ccNumber: ccNumber,
+                    type: ccType,
+                    range: ccType === 'continuous' ? '0-127' : ccRange
+                });
+            }
+            
+            // Create device object
+            const newDevice = {
+                id: this.nextDeviceId++,
+                name: deviceName,
+                color: deviceColor,
+                controllers: controllers,
+                assignedInterface: '',
+                assignedChannel: 1,
+                status: 'not_configured',
+                createdAt: new Date().toISOString()
+            };
+            
+            // Add to configured devices
+            this.configuredDevices.push(newDevice);
+            this.autoSaveConfiguration();
+            this.updateConfigurationTable();
+            
+            // Hide modal and show success
+            this.hideAddDeviceModal();
+            console.log('Device created successfully:', newDevice);
+            
+            // Refresh routing matrix
+            if (window.updateRoutingMatrix) {
+                window.updateRoutingMatrix();
+            }
+            
+        } catch (error) {
+            console.error('Error creating device:', error);
+            this.showFormError('Failed to create device. Please try again.');
+        }
+    }
+
+    /**
+     * Show form error message
+     */
+    showFormError(message) {
+        // Remove any existing error
+        const existingError = this.elements.modal.querySelector('.error-message');
+        if (existingError) {
+            existingError.remove();
         }
         
-        // Refresh the modal to update the visual state
-        if (!this.elements.modal?.classList.contains('hidden')) {
-            this.populateDeviceModal(this.elements.deviceSearch?.value || '');
-        }
-    }
-
-    /**
-     * Add device to configuration
-     */
-    addDevice(deviceIndex) {
-        const device = this.deviceDatabase[deviceIndex];
-        if (!device) return;
-
-        // Check if device is already configured
-        const existingDevice = this.configuredDevices.find(d => d.deviceId === deviceIndex);
-        if (existingDevice) {
-            alert('This device is already configured.');
-            return;
-        }
-
-        const configuredDevice = {
-            deviceId: deviceIndex,
-            name: device.name,
-            manufacturer: device.manufacturer,
-            type: device.type,
-            defaultChannel: device.midi_channel?.default_channel || 1,
-            assignedInterface: '',
-            assignedChannel: device.midi_channel?.default_channel || 1,
-            status: 'not_configured',
-            selectedControllers: [] // Array of selected controller CC numbers
-        };
-
-        this.configuredDevices.push(configuredDevice);
-        this.autoSaveConfiguration(); // Auto-save after adding device
-        this.updateConfigurationTable();
-        this.populateDeviceModal(this.elements.deviceSearch?.value || ''); // Refresh modal to show updated state
+        // Create and show new error
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = message;
         
-        // Refresh routing matrix to show new device option
-        if (window.updateRoutingMatrix) {
-            window.updateRoutingMatrix();
-        }
+        const modalBody = this.elements.modal.querySelector('.modal-body');
+        modalBody.insertBefore(errorDiv, modalBody.firstChild);
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            if (errorDiv.parentNode) {
+                errorDiv.remove();
+            }
+        }, 5000);
     }
+
+
 
     /**
      * Show confirmation dialog before removing device
      */
     confirmRemoveDevice(deviceId) {
-        const device = this.configuredDevices.find(d => d.deviceId === deviceId);
+        const device = this.configuredDevices.find(d => d.id === deviceId);
         if (!device) return;
 
-        const deviceName = `${device.name} (${device.manufacturer})`;
-        const message = `Are you sure you want to remove "${deviceName}" from the configuration?\n\nThis will disconnect any tracks currently using this device.`;
+        const message = `Are you sure you want to remove "${device.name}" from the configuration?\n\nThis will disconnect any tracks currently using this device.`;
         
         if (confirm(message)) {
             this.removeDevice(deviceId);
@@ -250,14 +387,9 @@ class DeviceConfiguration {
      * Remove device from configuration
      */
     removeDevice(deviceId) {
-        this.configuredDevices = this.configuredDevices.filter(d => d.deviceId !== deviceId);
+        this.configuredDevices = this.configuredDevices.filter(d => d.id !== deviceId);
         this.autoSaveConfiguration(); // Auto-save after removing device
         this.updateConfigurationTable();
-        
-        // Refresh modal if it's open
-        if (!this.elements.modal?.classList.contains('hidden')) {
-            this.populateDeviceModal(this.elements.deviceSearch?.value || '');
-        }
         
         // Refresh routing matrix to update device options
         if (window.updateRoutingMatrix) {
