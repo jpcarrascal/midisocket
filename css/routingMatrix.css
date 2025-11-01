@@ -1191,3 +1191,29 @@ html {
     margin-bottom: 16px;
     border: 1px solid #feb2b2;
 }
+
+/* Device Color Indicator */
+.device-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.device-color-indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+    flex-shrink: 0;
+}
+
+.device-info {
+    flex: 1;
+}
+
+.device-details {
+    font-size: 12px;
+    color: #718096;
+    margin-top: 2px;
+}

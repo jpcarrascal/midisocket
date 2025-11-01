@@ -651,7 +651,7 @@ function createDeviceSelect(track, devices) {
             
             configuredDevices.forEach(device => {
                 const option = document.createElement('option');
-                option.value = `device:${device.deviceId}`;
+                option.value = `device:${device.id}`;
                 option.textContent = `${device.name} (Ch ${device.assignedChannel})`;
                 
                 // Check if assigned interface is valid and connected
@@ -660,7 +660,7 @@ function createDeviceSelect(track, devices) {
                 
                 option.disabled = !hasValidInterface;
                 
-                if (track.deviceId === `device:${device.deviceId}`) {
+                if (track.deviceId === `device:${device.id}`) {
                     option.selected = true;
                 }
                 
