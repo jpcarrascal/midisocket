@@ -205,21 +205,7 @@ function generateDeviceControllers(device) {
             });
         }
         
-        // Add info about configuration if showing limited set
-        if (!device.selectedControllers || device.selectedControllers.length === 0) {
-            if (device.controls.length > 8) {
-                const infoGroup = createControllerGroup("Configuration");
-                const infoDiv = document.createElement('div');
-                infoDiv.className = 'controller-info';
-                infoDiv.innerHTML = `
-                    <p style="font-size: 13px; color: #888; margin: 0; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 6px;">
-                        <strong>Showing 8 of ${device.controls.length} controllers</strong><br>
-                        Configure device in sequencer to select specific controllers.
-                    </p>
-                `;
-                infoGroup.appendChild(infoDiv);
-            }
-        }
+        // No informational messages shown in track interface
     } else {
         // Fallback to generic if no specific controls defined
         generateGenericControllers();
