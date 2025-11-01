@@ -19,12 +19,14 @@
 
     <!-- Control Panel -->
     <div id="controls">
+
+      <div id="session-info">
+        <span id="session-name">Session: <strong>-</strong></span>
+        <span id="session-status">Status: <strong>Waiting...</strong></span>
+        <span id="midi-status">MIDI: <strong>Loading...</strong></span>
+      </div>
+
       <div id="session-controls">
-        <div id="session-info">
-          <span id="session-name">Session: <strong>-</strong></span>
-          <span id="session-status">Status: <strong>Waiting...</strong></span>
-          <span id="midi-status">MIDI: <strong>Loading...</strong></span>
-        </div>
         <div id="session-buttons">
           <button id="play-button" class="control-btn" title="Start session for all tracks">
             ▶️ Start Session
@@ -39,16 +41,19 @@
       </div>
       
       <div id="view-controls">
-        <button id="device-config-toggle" class="control-btn" title="Configure MIDI devices">
-          ⚙️ Device Config
-        </button>
-        <button id="info-toggle" class="control-btn" title="Show/hide device information">
-          ℹ️ Interface Info
-        </button>
-        <button id="stats-toggle" class="control-btn" title="Show/hide routing statistics">
-          📊 Statistics
-        </button>
+        <div id="view-buttons">
+          <button id="device-config-toggle" class="control-btn" title="Configure MIDI devices">
+            ⚙️ Device Config
+          </button>
+          <button id="info-toggle" class="control-btn" title="Show/hide device information">
+            ℹ️ Interface Info
+          </button>
+          <button id="stats-toggle" class="control-btn" title="Show/hide routing statistics">
+            📊 Statistics
+          </button>
+        </div>
       </div>
+
     </div>
 
     <!-- Device Configuration Panel -->

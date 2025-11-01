@@ -48,19 +48,20 @@ html {
     gap: 20px;
     flex-wrap: wrap;
     align-items: center;
+    width: 100%;
 }
 
 #session-info span {
     font-size: 13px;
-    color: #4a5568;
+    color: white;
 }
 
 #session-info strong {
-    color: #2d3748;
+    color: white;
     font-weight: 600;
 }
 
-#session-buttons {
+#session-buttons, #view-buttons {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
@@ -78,7 +79,7 @@ html {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(45, 45, 45, 0.95);
     backdrop-filter: blur(10px);
     border-radius: 12px;
     padding: 15px 20px;
@@ -91,6 +92,7 @@ html {
 #session-controls,
 #view-controls {
     display: flex;
+    flex-direction: column;
     gap: 10px;
 }
 
@@ -329,7 +331,7 @@ html {
 }
 
 #routing-table tr:hover {
-    background-color: #f8fafc;
+    background-color: #e8e8e8;
 }
 
 /* Track Status Indicators */
@@ -506,6 +508,7 @@ html {
 
 /* Device Configuration Panel */
 #device-config-panel {
+    background: rgba(45, 45, 45, 0.95);
     margin-bottom: 25px;
 }
 
@@ -541,7 +544,7 @@ html {
 }
 
 #device-config-table tr:hover {
-    background-color: #f8fafc;
+    background-color: #e8e8e8;
 }
 
 .device-name-cell strong {
