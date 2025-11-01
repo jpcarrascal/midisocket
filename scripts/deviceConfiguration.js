@@ -590,16 +590,4 @@ class DeviceConfiguration {
             checkbox.disabled = !isSelected && selectedCount >= 8;
         });
     }
-
-    /**
-     * Save controller selection (called by Save Controllers button)
-     */
-    saveControllerSelection() {
-        if (this.currentControllerSetupDevice) {
-            // Auto-save was already called during selection, just show confirmation
-            alert(`Controller setup saved for ${this.currentControllerSetupDevice.name}!`);
-            this.elements.controllerModal?.classList.add('hidden');
-            this.currentControllerSetupDevice = null;
-        }
-    }
 }

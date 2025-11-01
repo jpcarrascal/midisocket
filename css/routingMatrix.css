@@ -138,6 +138,7 @@ html {
     margin-bottom: 20px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease;
+    color: white;
 }
 
 .panel.hidden {
@@ -155,7 +156,6 @@ html {
     margin: 0;
     font-size: 18px;
     font-weight: 600;
-    color: #2d3748;
 }
 
 .panel-close-btn {
