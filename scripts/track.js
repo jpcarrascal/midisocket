@@ -162,22 +162,63 @@ function updateDeviceInterface(device) {
     }
 }
 
+/**
+ * Normalize controller data to handle both old database format and new custom format
+ */
+function normalizeControllerData(control) {
+    // Handle new custom device format
+    if (control.name && control.ccNumber !== undefined) {
+        return {
+            control_name: control.name,
+            cc_number: control.ccNumber,
+            type: control.type,
+            value_range: control.type === 'continuous' ? '0-127' : control.range,
+            description: `${control.name} (${control.type})`
+        };
+    }
+    
+    // Handle old database format (already normalized)
+    if (control.control_name && control.cc_number !== undefined) {
+        return control;
+    }
+    
+    // Fallback for unknown format
+    console.warn('Unknown controller format:', control);
+    return {
+        control_name: control.name || 'Unknown',
+        cc_number: control.ccNumber || control.cc_number || 1,
+        type: 'continuous',
+        value_range: '0-127',
+        description: 'Unknown controller'
+    };
+}
+
 function generateDeviceControllers(device) {
     console.log("Generating device-specific controllers for:", device.name);
     
-    if (device.controls && device.controls.length > 0) {
-        let controlsToShow = device.controls;
+    // Handle both old database format (device.controls) and new custom format (device.controllers)
+    const deviceControllers = device.controllers || device.controls || [];
+    
+    if (deviceControllers.length > 0) {
+        // For new custom devices, show all configured controllers (up to 4)
+        let controlsToShow = deviceControllers;
         
-        // If no controllers have been specifically selected, show only the first 4
-        if (!device.selectedControllers || device.selectedControllers.length === 0) {
-            controlsToShow = device.controls.slice(0, 4);
-            console.log(`No controllers configured, showing first 4 of ${device.controls.length} available`);
-        } else {
-            // Show only selected controllers (max 4)
-            controlsToShow = device.controls.filter(control => 
-                device.selectedControllers.includes(control.cc_number)
-            );
-            console.log(`Showing ${controlsToShow.length} configured controllers`);
+        if (device.controllers) {
+            // New custom device format - show all controllers defined by user
+            controlsToShow = device.controllers.slice(0, 4); // Limit to 4 for UI
+            console.log(`Showing ${controlsToShow.length} custom controllers for device: ${device.name}`);
+        } else if (device.controls) {
+            // Old database format - handle selected controllers
+            if (!device.selectedControllers || device.selectedControllers.length === 0) {
+                controlsToShow = device.controls.slice(0, 4);
+                console.log(`No controllers configured, showing first 4 of ${device.controls.length} available`);
+            } else {
+                // Show only selected controllers (max 4)
+                controlsToShow = device.controls.filter(control => 
+                    device.selectedControllers.includes(control.cc_number)
+                );
+                console.log(`Showing ${controlsToShow.length} configured controllers`);
+            }
         }
         
         // Group controllers logically if we have many
@@ -188,20 +229,24 @@ function generateDeviceControllers(device) {
             
             const firstGroupEl = createControllerGroup("Primary Controls");
             firstGroup.forEach(control => {
-                createController(control, firstGroupEl);
+                const normalizedControl = normalizeControllerData(control);
+                createController(normalizedControl, firstGroupEl);
             });
             
             if (secondGroup.length > 0) {
                 const secondGroupEl = createControllerGroup("Secondary Controls");
                 secondGroup.forEach(control => {
-                    createController(control, secondGroupEl);
+                    const normalizedControl = normalizeControllerData(control);
+                    createController(normalizedControl, secondGroupEl);
                 });
             }
         } else {
             // Show all in one group
             const groupEl = createControllerGroup("Device Controls");
             controlsToShow.forEach(control => {
-                createController(control, groupEl);
+                // Normalize controller data for both old and new formats
+                const normalizedControl = normalizeControllerData(control);
+                createController(normalizedControl, groupEl);
             });
         }
         
