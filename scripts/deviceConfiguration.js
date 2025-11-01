@@ -347,7 +347,11 @@ class DeviceConfiguration {
     notifyTracksOfDeviceChange(deviceId) {
         // Check if sequencer routing system is available
         if (!window.app || !window.app.routingMatrix) {
-            console.log('Routing matrix not available for device change notification');
+            console.log('Routing matrix not available for device change notification, will retry...');
+            // Retry after a short delay in case the sequencer is still initializing
+            setTimeout(() => {
+                this.notifyTracksOfDeviceChange(deviceId);
+            }, 100);
             return;
         }
 
@@ -359,8 +363,12 @@ class DeviceConfiguration {
             return;
         }
 
+        console.log(`Notifying tracks of device ${deviceId} configuration change, new channel: ${updatedDevice.assignedChannel}`);
+
         // Find all tracks using this device and update their routing
         const allRoutings = window.app.routingMatrix.getAllRoutings();
+        let tracksUpdated = 0;
+        
         for (const [trackId, routing] of allRoutings) {
             if (routing.deviceId === deviceIdString && routing.enabled) {
                 console.log(`Updating routing for track ${trackId} with new device ${deviceId} configuration`);
@@ -373,9 +381,12 @@ class DeviceConfiguration {
                     channel: newChannel
                 });
                 
+                tracksUpdated++;
                 // Note: The updateRouting call will automatically trigger the routing change callback
             }
         }
+        
+        console.log(`Updated ${tracksUpdated} tracks with new device ${deviceId} configuration`);
     }
 
     /**

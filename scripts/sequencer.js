@@ -872,3 +872,4 @@ function showInfo(message) {
 // Expose functions globally for inter-module communication
 window.updateRoutingMatrix = updateRoutingMatrix;
 window.deviceConfig = () => deviceConfig;
+window.app = app;
