@@ -235,18 +235,17 @@ body {
     }
     
     .slider {
-        -webkit-appearance: slider-vertical;
-        appearance: slider-vertical;
-        writing-mode: bt-lr; /* IE */
-        -webkit-writing-mode: vertical-lr; /* WebKit */
-        writing-mode: vertical-lr;
-        width: 40px; /* Thicker for better touch */
-        height: calc(100% - 10px); /* MAXIMUM height to screen edges */
+        -webkit-appearance: none;
+        appearance: none;
+        width: calc(100% - 10px); /* MAXIMUM height to screen edges */
+        height: 40px; /* Thicker for better touch */
         background: #333;
         outline: none;
         border-radius: 12px;
         margin: 5px 0; /* Minimal margin to top/bottom edges */
         flex: 1; /* Take up remaining space */
+        transform: rotate(-90deg); /* Rotate horizontal slider to vertical */
+        transform-origin: center; /* Rotate around center */
     }
     
     .slider::-webkit-slider-thumb {
