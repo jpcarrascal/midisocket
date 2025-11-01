@@ -166,9 +166,6 @@ class DeviceConfiguration {
                             <span class="default-channel">Default Ch: ${device.midi_channel?.default_channel || 'N/A'}</span>
                         </div>
                     </div>
-                    <div class="device-status-indicator">
-                        ${isConfigured ? '<span class="device-configured-label">✓ Configured</span>' : ''}
-                    </div>
                 </div>
             `;
         }).join('');
@@ -323,6 +320,9 @@ class DeviceConfiguration {
             if (window.updateRoutingMatrix) {
                 window.updateRoutingMatrix();
             }
+            
+            // Notify tracks using this device about the interface change
+            this.notifyTracksOfDeviceChange(deviceId);
         }
     }
 
@@ -335,6 +335,35 @@ class DeviceConfiguration {
             device.assignedChannel = parseInt(channel);
             this.autoSaveConfiguration(); // Auto-save after updating channel
             this.updateConfigurationTable();
+            
+            // Notify tracks using this device about the channel change
+            this.notifyTracksOfDeviceChange(deviceId);
+        }
+    }
+
+    /**
+     * Notify tracks that are using a specific device about configuration changes
+     */
+    notifyTracksOfDeviceChange(deviceId) {
+        // Check if sequencer routing system is available
+        if (!window.app || !window.app.routingMatrix) {
+            console.log('Routing matrix not available for device change notification');
+            return;
+        }
+
+        const deviceIdString = `device:${deviceId}`;
+        
+        // Find all tracks using this device
+        const allRoutings = window.app.routingMatrix.getAllRoutings();
+        for (const [trackId, routing] of allRoutings) {
+            if (routing.deviceId === deviceIdString && routing.enabled) {
+                console.log(`Notifying track ${trackId} of device ${deviceId} configuration change`);
+                
+                // Trigger the routing change callback to update the track
+                if (window.app.routingMatrix.routingChangeCallback) {
+                    window.app.routingMatrix.routingChangeCallback(trackId, routing);
+                }
+            }
         }
     }
 
@@ -555,6 +584,9 @@ class DeviceConfiguration {
         
         // Auto-save configuration
         this.autoSaveConfiguration();
+        
+        // Notify tracks using this device about the controller change
+        this.notifyTracksOfDeviceChange(device.deviceId);
     }
 
     /**
