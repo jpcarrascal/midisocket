@@ -208,7 +208,6 @@ body {
         flex: 1 1 auto !important;
         min-width: 60px !important;
         width: auto !important;
-        border: 1px solid red !important; /* DEBUG: Temporary border */
     }
     
     .slider-label {
