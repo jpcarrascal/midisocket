@@ -413,13 +413,16 @@ class DeviceConfiguration {
         this.elements.noDevicesMessage?.classList.add('hidden');
 
         this.elements.configTableBody.innerHTML = this.configuredDevices.map(device => `
-            <tr data-device-id="${device.deviceId}">
+            <tr data-device-id="${device.id}" style="background-color: ${device.color}15;">
                 <td class="device-name-cell">
-                    <strong>${device.name}</strong>
-                    <div class="device-manufacturer">${device.manufacturer}</div>
+                    <div class="device-color-indicator" style="background-color: ${device.color};"></div>
+                    <div class="device-info">
+                        <strong>${device.name}</strong>
+                        <div class="device-details">${(device.controllers || []).length} controller${(device.controllers || []).length !== 1 ? 's' : ''}</div>
+                    </div>
                 </td>
                 <td>
-                    <select class="interface-select" onchange="deviceConfig.updateDeviceInterface(${device.deviceId}, this.value)">
+                    <select class="interface-select" onchange="deviceConfig.updateDeviceInterface(${device.id}, this.value)">
                         <option value="">Select Interface...</option>
                         ${this.availableInterfaces.map(iface => `
                             <option value="${iface.id}" ${device.assignedInterface === iface.id ? 'selected' : ''}>
@@ -429,7 +432,7 @@ class DeviceConfiguration {
                     </select>
                 </td>
                 <td>
-                    <select class="channel-select" onchange="deviceConfig.updateDeviceChannel(${device.deviceId}, this.value)">
+                    <select class="channel-select" onchange="deviceConfig.updateDeviceChannel(${device.id}, this.value)">
                         ${Array.from({length: 16}, (_, i) => `
                             <option value="${i + 1}" ${device.assignedChannel === i + 1 ? 'selected' : ''}>
                                 ${i + 1}
@@ -441,10 +444,10 @@ class DeviceConfiguration {
                     <span class="status-badge status-${device.status}">${this.getStatusLabel(device.status)}</span>
                 </td>
                 <td>
-                    <button class="control-btn small" onclick="deviceConfig.showControllerSetup(${device.deviceId})" title="Setup MIDI controllers">
-                        ⚙️ Setup
+                    <button class="control-btn small" onclick="deviceConfig.showControllerSetup(${device.id})" title="Edit MIDI controllers">
+                        ⚙️ Edit
                     </button>
-                    <button class="control-btn small danger" onclick="deviceConfig.confirmRemoveDevice(${device.deviceId})" title="Remove device">
+                    <button class="control-btn small danger" onclick="deviceConfig.confirmRemoveDevice(${device.id})" title="Remove device">
                         🗑️ Remove
                     </button>
                 </td>
@@ -456,7 +459,7 @@ class DeviceConfiguration {
      * Update device interface assignment
      */
     updateDeviceInterface(deviceId, interfaceId) {
-        const device = this.configuredDevices.find(d => d.deviceId === deviceId);
+        const device = this.configuredDevices.find(d => d.id === deviceId);
         if (device) {
             device.assignedInterface = interfaceId;
             device.status = interfaceId ? 'configured' : 'not_configured';
@@ -474,10 +477,10 @@ class DeviceConfiguration {
     }
 
     /**
-     * Update device channel assignment
+     * Update device MIDI channel
      */
     updateDeviceChannel(deviceId, channel) {
-        const device = this.configuredDevices.find(d => d.deviceId === deviceId);
+        const device = this.configuredDevices.find(d => d.id === deviceId);
         if (device) {
             device.assignedChannel = parseInt(channel);
             this.autoSaveConfiguration(); // Auto-save after updating channel
@@ -573,7 +576,7 @@ class DeviceConfiguration {
      * Get device configuration by ID
      */
     getDeviceConfig(deviceId) {
-        return this.configuredDevices.find(d => d.deviceId === deviceId);
+        return this.configuredDevices.find(d => d.id === deviceId);
     }
 
     /**
@@ -598,25 +601,9 @@ class DeviceConfiguration {
      */
     saveConfiguration() {
         try {
-            // Enhance device data with complete information from database
-            const enhancedDevices = this.configuredDevices.map(device => {
-                const originalDevice = this.deviceDatabase[device.deviceId];
-                return {
-                    ...device,
-                    // Include additional device database info for completeness
-                    originalDatabaseEntry: originalDevice ? {
-                        controls: originalDevice.controls || [],
-                        midi_clock: originalDevice.midi_clock || {},
-                        midi_channel: originalDevice.midi_channel || {},
-                        description: originalDevice.description || '',
-                        manual_url: originalDevice.manual_url || ''
-                    } : null
-                };
-            });
-
             const config = {
-                version: 1,
-                devices: enhancedDevices,
+                version: 2, // Updated version for new custom device format
+                devices: this.configuredDevices,
                 timestamp: new Date().toISOString(),
                 exportedBy: 'MidiSocket Device Configuration',
                 deviceCount: this.configuredDevices.length
@@ -659,7 +646,18 @@ class DeviceConfiguration {
             const configStr = localStorage.getItem('midiDeviceConfiguration');
             if (configStr) {
                 const config = JSON.parse(configStr);
-                this.configuredDevices = config.devices || [];
+                this.configuredDevices = (config.devices || []).map(device => {
+                    // Migration: ensure all devices have required properties
+                    return {
+                        id: device.id || device.deviceId || 1, // Handle old deviceId format
+                        name: device.name || 'Unknown Device',
+                        color: device.color || '#4a90e2',
+                        controllers: device.controllers || [], // Ensure controllers array exists
+                        assignedInterface: device.assignedInterface || '',
+                        assignedChannel: device.assignedChannel || 1,
+                        status: device.status || 'not_configured'
+                    };
+                });
                 console.log('Loaded device configuration:', this.configuredDevices);
             }
         } catch (error) {
@@ -801,7 +799,7 @@ class DeviceConfiguration {
         this.autoSaveConfiguration();
         
         // Notify tracks using this device about the controller change
-        this.notifyTracksOfDeviceChange(device.deviceId);
+        this.notifyTracksOfDeviceChange(device.id);
     }
 
     /**
