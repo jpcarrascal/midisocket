@@ -333,14 +333,6 @@ function onGetTrackAssignment(data) {
         console.log('Sending track assignment:', assignmentData);
         app.socket.emit('track-assignment', assignmentData);
         
-        // Also send track data for compatibility
-        const colors = ['#888888', '#ffffff'];
-        app.socket.emit('track data', {
-            socketID: data.socketID,
-            channel: routing ? routing.channel : 0,
-            colors: colors
-        });
-        
     } catch (error) {
         console.error('Error in onGetTrackAssignment:', error);
     }
@@ -400,27 +392,36 @@ function onRoutingChange(trackId, routing) {
                 const configuredDevice = deviceConfig.getDeviceConfig(actualDeviceId);
                 console.log('Configured device from config:', configuredDevice);
                 if (configuredDevice) {
-                    // Get the full device data from database to access controls
-                    const fullDeviceData = deviceConfig.deviceDatabase ? deviceConfig.deviceDatabase[actualDeviceId] : null;
-                    console.log('Full device data from database:', fullDeviceData);
-                    
-                    // Filter controls based on selected controllers
+                    // Handle both new custom devices and old database devices
                     let availableControls = null;
-                    if (fullDeviceData && fullDeviceData.controls && configuredDevice.selectedControllers && configuredDevice.selectedControllers.length > 0) {
-                        availableControls = fullDeviceData.controls.filter(control => 
-                            configuredDevice.selectedControllers.includes(control.cc_number)
-                        );
-                        console.log('Filtered controls for track:', availableControls);
-                    } else if (fullDeviceData && fullDeviceData.controls) {
-                        console.log('No selected controllers, using all available controls');
-                        availableControls = fullDeviceData.controls;
+                    
+                    if (configuredDevice.controllers && configuredDevice.controllers.length > 0) {
+                        // New custom device format - use the controllers directly
+                        console.log('Using custom device controllers:', configuredDevice.controllers);
+                        // Don't set availableControls here - we'll use controllers property instead
+                    } else {
+                        // Old database format - try to get controls from database
+                        const fullDeviceData = deviceConfig.deviceDatabase ? deviceConfig.deviceDatabase[actualDeviceId] : null;
+                        console.log('Full device data from database:', fullDeviceData);
+                        
+                        if (fullDeviceData && fullDeviceData.controls && configuredDevice.selectedControllers && configuredDevice.selectedControllers.length > 0) {
+                            availableControls = fullDeviceData.controls.filter(control => 
+                                configuredDevice.selectedControllers.includes(control.cc_number)
+                            );
+                            console.log('Filtered controls for track:', availableControls);
+                        } else if (fullDeviceData && fullDeviceData.controls) {
+                            console.log('No selected controllers, using all available controls');
+                            availableControls = fullDeviceData.controls;
+                        }
                     }
                     
                     deviceInfo = {
                         id: routing.deviceId,
                         name: configuredDevice.name || 'Unknown Device',
+                        color: configuredDevice.color, // Include device color
                         interface: configuredDevice.assignedInterface,
-                        controls: availableControls
+                        controls: availableControls,
+                        controllers: configuredDevice.controllers || [] // Include custom controllers
                     };
                     console.log('Created device info:', deviceInfo);
                 }

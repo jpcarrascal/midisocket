@@ -203,12 +203,12 @@
               <button type="button" id="add-controller-btn" class="control-btn small">➕ Add Controller</button>
             </div>
 
-            <!-- Form Actions -->
-            <div class="form-actions">
-              <button type="button" class="control-btn" onclick="document.getElementById('device-selection-modal').classList.add('hidden');">Cancel</button>
-              <button type="submit" class="control-btn success">Create Device</button>
-            </div>
           </form>
+        </div>
+        <!-- Form Actions - moved outside modal-body to be always visible -->
+        <div class="form-actions">
+          <button type="button" class="control-btn" onclick="document.getElementById('device-selection-modal').classList.add('hidden');">Cancel</button>
+          <button type="submit" form="add-device-form" class="control-btn success">Create Device</button>
         </div>
       </div>
     </div>

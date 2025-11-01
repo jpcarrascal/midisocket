@@ -168,6 +168,66 @@ body {
         margin: 0 5px; /* Minimal margin to edges */
     }
     
+    /* Discrete controller styles - match slider styling */
+    .discrete-container {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 5px;
+        background: rgba(45, 55, 72, 0.3);
+        padding: 5px;
+        border-radius: 4px;
+        flex: 1;
+        width: calc(100vw - 20px);
+    }
+    
+    .discrete-label {
+        color: white;
+        font-size: 0.8em;
+        margin-bottom: 0.4em;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .discrete-value {
+        color: #cccccc;
+        font-weight: bold;
+        min-width: 35px;
+        text-align: right;
+        font-size: 1.1em;
+    }
+    
+    .discrete-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 0 5px;
+    }
+    
+    .discrete-option-btn {
+        padding: 8px 12px;
+        border: 2px solid #666;
+        border-radius: 6px;
+        background: #2d3748;
+        color: #fff;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 12px;
+        min-width: 60px;
+        flex: 1;
+        text-align: center;
+    }
+    
+    .discrete-option-btn:hover {
+        background: #4a5568;
+        border-color: #718096;
+    }
+    
+    .discrete-option-btn.active {
+        background: #007bff;
+        border-color: #007bff;
+        color: #fff;
+    }
 
 }
 
@@ -242,6 +302,64 @@ body {
         direction: rtl; /* Reverse direction to fix upside-down issue */
     }
     
+    /* Discrete controller styles for landscape */
+    .discrete-container {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        background: rgba(45, 55, 72, 0.3) !important;
+        padding: 3px !important;
+        border-radius: 4px !important;
+        height: 100% !important;
+        flex: 1 1 auto !important;
+        min-width: 80px !important;
+        width: auto !important;
+    }
+    
+    .discrete-label {
+        color: white;
+        font-size: 0.6em;
+        margin-bottom: 0.1em;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.05em;
+        min-height: 1.5em;
+        flex-shrink: 0;
+    }
+    
+    .discrete-value {
+        color: #cccccc;
+        font-weight: bold;
+        font-size: 1.2em;
+    }
+    
+    .discrete-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex: 1;
+        justify-content: flex-start;
+        width: 100%;
+        margin: 5px 0;
+    }
+    
+    .discrete-option-btn {
+        padding: 6px 8px;
+        border: 2px solid #666;
+        border-radius: 4px;
+        background: #2d3748;
+        color: #fff;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 10px;
+        text-align: center;
+        min-height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
 }
 

@@ -202,7 +202,6 @@ class DeviceConfiguration {
                 <div class="form-group">
                     <label>Type *</label>
                     <select name="ccType_${controllerIndex}" required onchange="deviceConfig.handleControllerTypeChange(${controllerIndex}, this.value)">
-                        <option value="">Select type...</option>
                         <option value="continuous" ${controllerData?.type === 'continuous' ? 'selected' : ''}>Continuous</option>
                         <option value="discrete" ${controllerData?.type === 'discrete' ? 'selected' : ''}>Discrete</option>
                     </select>
@@ -271,6 +270,12 @@ class DeviceConfiguration {
             const formData = new FormData(this.elements.addDeviceForm);
             const deviceName = formData.get('deviceName')?.trim();
             const deviceColor = formData.get('deviceColor');
+            
+            console.log('Form data collected:', {
+                deviceName,
+                deviceColor,
+                formElementValue: this.elements.deviceColor?.value
+            });
             
             // Validate basic fields
             if (!deviceName) {
@@ -341,7 +346,7 @@ class DeviceConfiguration {
                 this.editingDevice.controllers = controllers;
                 this.editingDevice.updatedAt = new Date().toISOString();
                 
-                console.log('Device updated successfully:', this.editingDevice);
+                console.log('Device updated successfully with color:', this.editingDevice.color);
                 this.editingDevice = null; // Clear editing state
             } else {
                 // Create new device
@@ -358,6 +363,7 @@ class DeviceConfiguration {
                 
                 // Add to configured devices
                 this.configuredDevices.push(newDevice);
+                console.log('New device created with color:', newDevice.color);
                 console.log('Device created successfully:', newDevice);
                 console.log('Device controllers array:', newDevice.controllers);
             }
@@ -620,7 +626,11 @@ class DeviceConfiguration {
      * Get device configuration by ID
      */
     getDeviceConfig(deviceId) {
-        return this.configuredDevices.find(d => d.id === deviceId);
+        console.log('getDeviceConfig looking for deviceId:', deviceId, 'type:', typeof deviceId);
+        console.log('Available devices:', this.configuredDevices.map(d => ({id: d.id, name: d.name, color: d.color})));
+        const device = this.configuredDevices.find(d => d.id === deviceId);
+        console.log('Found device:', device ? {id: device.id, name: device.name, color: device.color} : null);
+        return device;
     }
 
     /**
@@ -635,9 +645,14 @@ class DeviceConfiguration {
         }
         
         const device = this.getDeviceConfig(actualDeviceId);
-        console.log('getDeviceInfo returning device:', device?.name, 'controllers:', device?.controllers?.length);
+        console.log('getDeviceInfo returning device:', device?.name, 'color:', device?.color, 'controllers:', device?.controllers?.length);
         
-        return device;
+        const result = {
+            ...device,
+            controllers: Array.isArray(device.controllers) ? device.controllers : []
+        };
+        console.log('getDeviceInfo final result:', result);
+        return result;
     }
 
     /**

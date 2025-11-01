@@ -71,18 +71,7 @@ if(!initials && session) { // No initials == no socket connection
 
     /* ----------- Socket messages ------------ */
 
-    socket.on('track data', function(msg) {
-        if(msg.socketID == mySocketID) {
-            console.log("My channel is: " + msg.channel);
-            midiChannel = msg.channel;
-            trackInfoElement.textContent = `Track ${msg.channel + 1}`;
-            console.log("My color is: " + msg.colors[0]);
-            document.querySelector("body").style.backgroundColor = msg.colors[0];
-            document.querySelector("body").style.color = msg.colors[1];
-        }
-    });
-
-    // New message for device assignment
+    // Device assignment message - handles all track data including device color
     socket.on('track-assignment', function(msg) {
         console.log("Received track-assignment message:", msg);
         if(msg.socketID == mySocketID) {
@@ -142,27 +131,61 @@ function updateDeviceInterface(device) {
     if (!device) {
         deviceNameElement.textContent = "No Device Assigned";
         controllerContainer.innerHTML = '';
+        // Reset to default background
+        document.body.style.backgroundColor = '#1a1a1a';
+        document.body.style.color = '#ffffff';
         return;
     }
 
     console.log("Track received device:", device.name, "with controllers:", device.controllers);
+    console.log("Track received device color:", device.color);
     deviceNameElement.textContent = device.name || "Unknown Device";
+    
+    // Apply device color as background
+    if (device.color) {
+        document.body.style.backgroundColor = device.color;
+        // Calculate contrast color for text
+        const textColor = getContrastColor(device.color);
+        document.body.style.color = textColor;
+        console.log("Applied device color:", device.color, "with text color:", textColor);
+    }
     
     // Clear existing controllers
     controllerContainer.innerHTML = '';
     currentControllers = {};
 
-    if ((device.controllers && device.controllers.length > 0) || (device.controls && device.controls.length > 0)) {
-        // Device has specific controller mappings (either new custom format or old database format)
+
+    
+    if (device.controllers && Array.isArray(device.controllers) && device.controllers.length > 0) {
+        // Device has specific controller mappings (custom format only)
         console.log("Device has controllers, generating device-specific interface");
         console.log("Will call generateDeviceControllers with:", device);
         generateDeviceControllers(device);
     } else {
         // Generic MIDI interface - use standard controllers
         console.log("No device controllers found, using generic interface");
-        console.log("Falling back to generic controllers");
+        console.log("device.controllers:", device.controllers);
         generateGenericControllers();
     }
+}
+
+/**
+ * Calculate contrast color (white or black) based on background color
+ */
+function getContrastColor(hexColor) {
+    // Remove # if present
+    const color = hexColor.replace('#', '');
+    
+    // Convert to RGB
+    const r = parseInt(color.substr(0, 2), 16);
+    const g = parseInt(color.substr(2, 2), 16);
+    const b = parseInt(color.substr(4, 2), 16);
+    
+    // Calculate luminance
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    
+    // Return white for dark backgrounds, black for light backgrounds
+    return luminance > 0.5 ? '#000000' : '#ffffff';
 }
 
 /**
@@ -199,43 +222,22 @@ function normalizeControllerData(control) {
 function generateDeviceControllers(device) {
     console.log("Generating device-specific controllers for:", device.name);
     
-    // Handle both old database format (device.controls) and new custom format (device.controllers)
-    const deviceControllers = device.controllers || device.controls || [];
-    
+    // Only use custom device controllers
+    const deviceControllers = device.controllers || [];
     if (deviceControllers.length > 0) {
-        // For new custom devices, show all configured controllers (up to 4)
-        let controlsToShow = deviceControllers;
-        
-        if (device.controllers) {
-            // New custom device format - show all controllers defined by user
-            controlsToShow = device.controllers.slice(0, 4); // Limit to 4 for UI
-            console.log(`Showing ${controlsToShow.length} custom controllers for device: ${device.name}`);
-        } else if (device.controls) {
-            // Old database format - handle selected controllers
-            if (!device.selectedControllers || device.selectedControllers.length === 0) {
-                controlsToShow = device.controls.slice(0, 4);
-                console.log(`No controllers configured, showing first 4 of ${device.controls.length} available`);
-            } else {
-                // Show only selected controllers (max 4)
-                controlsToShow = device.controls.filter(control => 
-                    device.selectedControllers.includes(control.cc_number)
-                );
-                console.log(`Showing ${controlsToShow.length} configured controllers`);
-            }
-        }
-        
+        // Show all configured controllers (up to 4)
+        let controlsToShow = deviceControllers.slice(0, 4); // Limit to 4 for UI
+        console.log(`Showing ${controlsToShow.length} custom controllers for device: ${device.name}`);
         // Group controllers logically if we have many
         if (controlsToShow.length > 4) {
             const midPoint = Math.ceil(controlsToShow.length / 2);
             const firstGroup = controlsToShow.slice(0, midPoint);
             const secondGroup = controlsToShow.slice(midPoint);
-            
             const firstGroupEl = createControllerGroup("Primary Controls");
             firstGroup.forEach(control => {
                 const normalizedControl = normalizeControllerData(control);
                 createController(normalizedControl, firstGroupEl);
             });
-            
             if (secondGroup.length > 0) {
                 const secondGroupEl = createControllerGroup("Secondary Controls");
                 secondGroup.forEach(control => {
@@ -247,12 +249,11 @@ function generateDeviceControllers(device) {
             // Show all in one group
             const groupEl = createControllerGroup("Device Controls");
             controlsToShow.forEach(control => {
-                // Normalize controller data for both old and new formats
+                // Normalize controller data for custom format
                 const normalizedControl = normalizeControllerData(control);
                 createController(normalizedControl, groupEl);
             });
         }
-        
         // No informational messages shown in track interface
     } else {
         // Fallback to generic if no specific controls defined
@@ -293,24 +294,29 @@ function generateGenericControllers() {
 }
 
 function createController(control, parentGroup = null) {
-    console.log("Creating controller for:", control.control_name, "CC:", control.cc_number);
-    
-    // Parse the value range to determine the max value
-    let maxValue = 127; // Default MIDI range
-    if (control.value_range) {
-        const rangeMatch = control.value_range.match(/(\d+).*?(\d+)/);
-        if (rangeMatch) {
-            maxValue = parseInt(rangeMatch[2]);
-        }
-    }
+    console.log("Creating controller for:", control.control_name, "CC:", control.cc_number, "Type:", control.type);
     
     // Use provided parent group or create a new one
     const group = parentGroup || createControllerGroup(control.control_name);
     
-    // For now, create all controls as sliders
-    // Could be enhanced to create different control types based on the value range
-    const defaultValue = Math.floor(maxValue / 2); // Start at middle value
-    createSlider(group, control.control_name, control.cc_number, defaultValue, maxValue);
+    // Create different control types based on the controller type
+    if (control.type === 'discrete') {
+        console.log("Creating discrete controller with range:", control.value_range);
+        createDiscreteController(group, control.control_name, control.cc_number, control.value_range);
+    } else {
+        // Continuous controller - create slider
+        console.log("Creating continuous controller");
+        // Parse the value range to determine the max value
+        let maxValue = 127; // Default MIDI range
+        if (control.value_range) {
+            const rangeMatch = control.value_range.match(/(\d+).*?(\d+)/);
+            if (rangeMatch) {
+                maxValue = parseInt(rangeMatch[2]);
+            }
+        }
+        const defaultValue = Math.floor(maxValue / 2); // Start at middle value
+        createSlider(group, control.control_name, control.cc_number, defaultValue, maxValue);
+    }
     
     // Add description as tooltip or subtitle if available
     if (control.description) {
@@ -322,6 +328,118 @@ function createController(control, parentGroup = null) {
         description.style.marginTop = '4px';
         group.appendChild(description);
     }
+}
+
+function createDiscreteController(group, name, ccNumber, valueRange) {
+    console.log("Creating discrete controller:", name, "with range:", valueRange);
+    
+    // Parse the discrete range format: "Off: 0-31, On: 32-63, Auto: 64-127"
+    const options = parseDiscreteRange(valueRange);
+    console.log("Parsed discrete options:", options);
+    
+    if (options.length === 0) {
+        console.warn("No valid options parsed from range:", valueRange);
+        return;
+    }
+    
+    // Create main container (similar to slider-container)
+    const container = document.createElement('div');
+    container.className = 'discrete-container';
+    
+    // Create label (similar to slider-label)
+    const label = document.createElement('div');
+    label.className = 'discrete-label';
+    
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = name;
+    
+    const valueSpan = document.createElement('span');
+    valueSpan.className = 'discrete-value';
+    valueSpan.textContent = options[0].label; // Show first option as default
+    
+    label.appendChild(nameSpan);
+    label.appendChild(valueSpan);
+    
+    // Create container for discrete buttons
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'discrete-buttons';
+    
+    let activeButton = null;
+    
+    // Create a button for each discrete option
+    options.forEach((option, index) => {
+        const button = document.createElement('button');
+        button.className = 'discrete-option-btn';
+        button.textContent = option.label;
+        
+        // Handle button click
+        button.addEventListener('click', () => {
+            // Update visual state
+            if (activeButton) {
+                activeButton.classList.remove('active');
+            }
+            
+            button.classList.add('active');
+            activeButton = button;
+            
+            // Update the value display
+            valueSpan.textContent = option.label;
+            
+            // Send MIDI CC message with the option's value
+            const midiValue = option.midValue;
+            console.log(`Discrete controller ${name} (CC${ccNumber}): ${option.label} = ${midiValue}`);
+            
+            // Send MIDI CC message using the same function as sliders
+            sendControlChange(ccNumber, midiValue);
+            showMidiActivity(`CC${ccNumber}: ${option.label} (${midiValue})`);
+        });
+        
+        buttonContainer.appendChild(button);
+        
+        // Set first option as default
+        if (index === 0) {
+            button.click();
+        }
+    });
+    
+    // Assemble the complete discrete controller
+    container.appendChild(label);
+    container.appendChild(buttonContainer);
+    group.appendChild(container);
+}
+
+function parseDiscreteRange(rangeString) {
+    // Parse format: "Off: 0-31, On: 32-63, Auto: 64-127"
+    const options = [];
+    
+    if (!rangeString) return options;
+    
+    // Split by comma and parse each option
+    const parts = rangeString.split(',');
+    
+    parts.forEach(part => {
+        const trimmedPart = part.trim();
+        // Match pattern: "Label: min-max" or "Label: value"
+        const match = trimmedPart.match(/^([^:]+):\s*(\d+)(?:-(\d+))?/);
+        
+        if (match) {
+            const label = match[1].trim();
+            const minValue = parseInt(match[2]);
+            const maxValue = match[3] ? parseInt(match[3]) : minValue;
+            
+            // Use the middle value of the range as the MIDI value to send
+            const midValue = Math.floor((minValue + maxValue) / 2);
+            
+            options.push({
+                label: label,
+                minValue: minValue,
+                maxValue: maxValue,
+                midValue: midValue
+            });
+        }
+    });
+    
+    return options;
 }
 
 function createControllerGroup(title) {
