@@ -378,7 +378,8 @@ class DeviceConfiguration {
                 const newChannel = updatedDevice.assignedChannel - 1;
                 
                 window.app.routingMatrix.updateRouting(trackId, {
-                    channel: newChannel
+                    channel: newChannel,
+                    channelLocked: true  // Configured devices have locked channels
                 });
                 
                 tracksUpdated++;
@@ -387,6 +388,11 @@ class DeviceConfiguration {
         }
         
         console.log(`Updated ${tracksUpdated} tracks with new device ${deviceId} configuration`);
+        
+        // Refresh the routing matrix UI to show the updated channels
+        if (window.updateRoutingMatrix) {
+            window.updateRoutingMatrix();
+        }
     }
 
     /**
