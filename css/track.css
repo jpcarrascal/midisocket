@@ -233,12 +233,13 @@ body {
         -webkit-appearance: slider-vertical;
         appearance: slider-vertical;
         writing-mode: bt-lr; /* IE */
-        -webkit-writing-mode: vertical-lr; /* WebKit */
-        writing-mode: vertical-lr;
+        -webkit-writing-mode: vertical-rl; /* WebKit - reverse direction */
+        writing-mode: vertical-rl;
         width: 40px; /* Thicker for better touch */
         height: calc(100% - 20px); /* Leave more margin for labels */
         margin: 10px 0; /* More margin for better spacing */
         flex: 1; /* Take up remaining space */
+        direction: rtl; /* Reverse direction to fix upside-down issue */
     }
     
 
