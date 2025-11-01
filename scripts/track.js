@@ -163,15 +163,63 @@ function updateDeviceInterface(device) {
 }
 
 function generateDeviceControllers(device) {
-    // This would be implemented based on the device database structure
-    // For now, we'll use a simplified approach
     console.log("Generating device-specific controllers for:", device.name);
     
-    // Example: If device has specific controls defined
-    if (device.controls) {
-        device.controls.forEach(control => {
-            createController(control);
-        });
+    if (device.controls && device.controls.length > 0) {
+        let controlsToShow = device.controls;
+        
+        // If no controllers have been specifically selected, show only the first 8
+        if (!device.selectedControllers || device.selectedControllers.length === 0) {
+            controlsToShow = device.controls.slice(0, 8);
+            console.log(`No controllers configured, showing first 8 of ${device.controls.length} available`);
+        } else {
+            // Show only selected controllers (max 8)
+            controlsToShow = device.controls.filter(control => 
+                device.selectedControllers.includes(control.cc_number)
+            );
+            console.log(`Showing ${controlsToShow.length} configured controllers`);
+        }
+        
+        // Group controllers logically if we have many
+        if (controlsToShow.length > 4) {
+            const midPoint = Math.ceil(controlsToShow.length / 2);
+            const firstGroup = controlsToShow.slice(0, midPoint);
+            const secondGroup = controlsToShow.slice(midPoint);
+            
+            const firstGroupEl = createControllerGroup("Primary Controls");
+            firstGroup.forEach(control => {
+                createController(control, firstGroupEl);
+            });
+            
+            if (secondGroup.length > 0) {
+                const secondGroupEl = createControllerGroup("Secondary Controls");
+                secondGroup.forEach(control => {
+                    createController(control, secondGroupEl);
+                });
+            }
+        } else {
+            // Show all in one group
+            const groupEl = createControllerGroup("Device Controls");
+            controlsToShow.forEach(control => {
+                createController(control, groupEl);
+            });
+        }
+        
+        // Add info about configuration if showing limited set
+        if (!device.selectedControllers || device.selectedControllers.length === 0) {
+            if (device.controls.length > 8) {
+                const infoGroup = createControllerGroup("Configuration");
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'controller-info';
+                infoDiv.innerHTML = `
+                    <p style="font-size: 13px; color: #888; margin: 0; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 6px;">
+                        <strong>Showing 8 of ${device.controls.length} controllers</strong><br>
+                        Configure device in sequencer to select specific controllers.
+                    </p>
+                `;
+                infoGroup.appendChild(infoDiv);
+            }
+        }
     } else {
         // Fallback to generic if no specific controls defined
         generateGenericControllers();
@@ -210,7 +258,7 @@ function generateGenericControllers() {
     ]);
 }
 
-function createController(control) {
+function createController(control, parentGroup = null) {
     console.log("Creating controller for:", control.control_name, "CC:", control.cc_number);
     
     // Parse the value range to determine the max value
@@ -222,8 +270,8 @@ function createController(control) {
         }
     }
     
-    // Create a controller group for this control
-    const group = createControllerGroup(control.control_name);
+    // Use provided parent group or create a new one
+    const group = parentGroup || createControllerGroup(control.control_name);
     
     // For now, create all controls as sliders
     // Could be enhanced to create different control types based on the value range

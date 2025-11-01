@@ -493,10 +493,16 @@ class DeviceConfiguration {
             return;
         }
 
+        // If no controllers are selected, show only the first 8
+        let controllersToShow = controls;
+        if (selectedControllers.length === 0) {
+            controllersToShow = controls.slice(0, 8);
+        }
+
         const selectedCount = selectedControllers.length;
         this.updateSelectedCount(selectedCount);
 
-        this.elements.controllerList.innerHTML = controls.map((controller, index) => {
+        this.elements.controllerList.innerHTML = controllersToShow.map((controller, index) => {
             const isSelected = selectedControllers.includes(controller.cc_number);
             const isDisabled = !isSelected && selectedCount >= 8;
             
@@ -521,6 +527,19 @@ class DeviceConfiguration {
                 </div>
             `;
         }).join('');
+
+        // Add info message if we're showing a limited set
+        if (selectedControllers.length === 0 && controls.length > 8) {
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'controller-info-message';
+            infoDiv.innerHTML = `
+                <p style="font-size: 13px; color: #666; margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 6px;">
+                    <strong>Showing first 8 controllers</strong><br>
+                    ${controls.length - 8} additional controllers available. Select any controller to unlock the full list.
+                </p>
+            `;
+            this.elements.controllerList.appendChild(infoDiv);
+        }
     }
 
     /**
@@ -538,6 +557,8 @@ class DeviceConfiguration {
             device.selectedControllers = [];
         }
 
+        const wasEmptySelection = device.selectedControllers.length === 0;
+
         if (isChecked) {
             // Add controller if not already selected and under limit
             if (!device.selectedControllers.includes(ccNumber) && device.selectedControllers.length < 8) {
@@ -548,9 +569,19 @@ class DeviceConfiguration {
             device.selectedControllers = device.selectedControllers.filter(cc => cc !== ccNumber);
         }
 
-        // Update UI
-        this.updateSelectedCount(device.selectedControllers.length);
-        this.updateControllerItemStates();
+        const isNowEmptySelection = device.selectedControllers.length === 0;
+
+        // If we transitioned from empty to non-empty or vice versa, refresh the entire list
+        if (wasEmptySelection !== isNowEmptySelection) {
+            const deviceData = this.deviceDatabase[device.deviceId];
+            if (deviceData && deviceData.controls) {
+                this.populateControllerList(deviceData.controls, device.selectedControllers);
+            }
+        } else {
+            // Normal update
+            this.updateSelectedCount(device.selectedControllers.length);
+            this.updateControllerItemStates();
+        }
         
         // Auto-save configuration
         this.autoSaveConfiguration();
