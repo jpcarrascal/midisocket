@@ -151,6 +151,9 @@ async function initializeDeviceConfiguration() {
         // Update available interfaces when MIDI devices change
         deviceConfig.updateAvailableInterfaces(app.midiDeviceManager.getOutputDevicesList());
         
+        // Expose globally for other modules
+        window.deviceConfig = deviceConfig;
+        
         console.log('Device configuration system initialized');
         
     } catch (error) {
