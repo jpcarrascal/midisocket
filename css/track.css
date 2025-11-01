@@ -103,7 +103,7 @@ body {
 #controller-container {
     display: none;
     padding: 0.1em; /* Minimal padding */
-    height: calc(100vh - 80px); /* Use almost entire screen height */
+    height: calc(100vh - 120px); /* Leave space for header and status bar */
     overflow: visible; /* Don't clip content */
 }
 
@@ -182,7 +182,7 @@ body {
         overflow-x: auto !important;
         overflow-y: hidden !important;
         width: 100% !important;
-        height: calc(100vh - 80px) !important;
+        height: calc(100vh - 120px) !important; /* More space for header and status bar */
         flex-wrap: nowrap !important;
     }
     
@@ -236,8 +236,8 @@ body {
         -webkit-writing-mode: vertical-lr; /* WebKit */
         writing-mode: vertical-lr;
         width: 40px; /* Thicker for better touch */
-        height: calc(100% - 10px); /* MAXIMUM height to screen edges */
-        margin: 5px 0; /* Minimal margin to top/bottom edges */
+        height: calc(100% - 20px); /* Leave more margin for labels */
+        margin: 10px 0; /* More margin for better spacing */
         flex: 1; /* Take up remaining space */
     }
     
