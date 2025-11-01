@@ -163,36 +163,12 @@ body {
     }
     
     .slider {
-        -webkit-appearance: none;
-        appearance: none;
         width: calc(100% - 10px); /* MAXIMUM width to screen edges */
         height: 40px; /* Thicker for better touch */
-        border-radius: 12px;
-        background: #333;
-        outline: none;
         margin: 0 5px; /* Minimal margin to edges */
     }
     
-    .slider::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 50px; /* HUGE thumb */
-        height: 50px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #888888 0%, #666666 100%);
-        cursor: pointer;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-    }
-    
-    .slider::-moz-range-thumb {
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #888888 0%, #666666 100%);
-        cursor: pointer;
-        border: none;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-    }
+
 }
 
 /* Landscape: Vertical sliders - MAXIMUM HEIGHT */
@@ -213,8 +189,6 @@ body {
         padding: 5px; /* Minimal padding for maximum slider height */
         border-radius: 4px;
         height: calc(100vh - 60px); /* Use MAXIMUM screen height */
-        transform: rotate(-90deg); /* Rotate entire container to vertical */
-        transform-origin: center; /* Rotate around center */
     }
     
     .slider-label {
@@ -237,37 +211,18 @@ body {
     }
     
     .slider {
-        -webkit-appearance: none;
-        appearance: none;
-        width: calc(100% - 10px); /* MAXIMUM width for slider track */
-        height: 40px; /* Thicker for better touch */
-        background: #333;
-        outline: none;
-        border-radius: 12px;
-        margin: 5px 0; /* Minimal margin to edges */
+        -webkit-appearance: slider-vertical;
+        appearance: slider-vertical;
+        writing-mode: bt-lr; /* IE */
+        -webkit-writing-mode: vertical-lr; /* WebKit */
+        writing-mode: vertical-lr;
+        width: 40px; /* Thicker for better touch */
+        height: calc(100% - 10px); /* MAXIMUM height to screen edges */
+        margin: 5px 0; /* Minimal margin to top/bottom edges */
         flex: 1; /* Take up remaining space */
     }
     
-    .slider::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 50px; /* HUGE thumb for easier touch */
-        height: 50px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #888888 0%, #666666 100%);
-        cursor: pointer;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-    }
-    
-    .slider::-moz-range-thumb {
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #888888 0%, #666666 100%);
-        cursor: pointer;
-        border: none;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-    }
+
 }
 
 /* Buttons */
