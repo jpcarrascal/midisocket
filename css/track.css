@@ -335,12 +335,15 @@ body {
     
     .discrete-buttons {
         display: flex;
-        flex-direction: column;
-        gap: 4px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 3px;
         flex: 1;
         justify-content: flex-start;
+        align-content: flex-start;
         width: 100%;
         margin: 5px 0;
+        overflow-y: auto;
     }
     
     .discrete-option-btn {
@@ -353,10 +356,12 @@ body {
         transition: all 0.2s;
         font-size: 10px;
         text-align: center;
-        min-height: 30px;
+        min-height: 28px;
         display: flex;
         align-items: center;
         justify-content: center;
+        flex: 0 0 calc(50% - 4px);
+        max-width: calc(50% - 4px);
     }
     
     .discrete-option-btn:hover {
