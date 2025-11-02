@@ -76,6 +76,29 @@ class DeviceConfiguration {
         this.elements.colorPreview = document.getElementById('color-preview');
         this.elements.controllersContainer = document.getElementById('controllers-container');
         this.elements.addControllerBtn = document.getElementById('add-controller-btn');
+        
+        // Update dynamic HTML text based on config
+        this.updateDynamicText();
+    }
+    
+    /**
+     * Update HTML text that depends on configuration values
+     */
+    updateDynamicText() {
+        const maxControllersText = document.getElementById('max-controllers-text');
+        if (maxControllersText) {
+            maxControllersText.textContent = `Define up to ${config.MAX_CONTROLLERS_PER_DEVICE} MIDI controllers for this device:`;
+        }
+        
+        const controllerSelectionText = document.getElementById('controller-selection-text');
+        if (controllerSelectionText) {
+            controllerSelectionText.textContent = `Select up to ${config.MAX_CONTROLLERS_PER_DEVICE} MIDI controllers`;
+        }
+        
+        const maxCountSpan = document.getElementById('max-count');
+        if (maxCountSpan) {
+            maxCountSpan.textContent = config.MAX_CONTROLLERS_PER_DEVICE;
+        }
     }
 
     /**
@@ -178,7 +201,7 @@ class DeviceConfiguration {
      * Add a controller form to the modal
      */
     addControllerForm(controllerData = null) {
-        if (this.currentControllerCount >= 4) return;
+        if (this.currentControllerCount >= config.MAX_CONTROLLERS_PER_DEVICE) return;
         
         const controllerIndex = this.currentControllerCount;
         const controllerForm = document.createElement('div');
@@ -255,9 +278,9 @@ class DeviceConfiguration {
      */
     updateAddControllerButton() {
         if (this.elements.addControllerBtn) {
-            this.elements.addControllerBtn.disabled = this.currentControllerCount >= 4;
+            this.elements.addControllerBtn.disabled = this.currentControllerCount >= config.MAX_CONTROLLERS_PER_DEVICE;
             this.elements.addControllerBtn.textContent = 
-                this.currentControllerCount >= 4 ? '✓ Maximum Controllers Added' : '➕ Add Controller';
+                this.currentControllerCount >= config.MAX_CONTROLLERS_PER_DEVICE ? '✓ Maximum Controllers Added' : '➕ Add Controller';
         }
     }
 
@@ -1027,7 +1050,7 @@ class DeviceConfiguration {
 
         this.elements.controllerList.innerHTML = controls.map((controller, index) => {
             const isSelected = selectedControllers.includes(controller.cc_number);
-            const isDisabled = !isSelected && selectedCount >= 4;
+            const isDisabled = !isSelected && selectedCount >= config.MAX_CONTROLLERS_PER_DEVICE;
             
             return `
                 <div class="controller-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}" 
@@ -1069,7 +1092,7 @@ class DeviceConfiguration {
 
         if (isChecked) {
             // Add controller if not already selected and under limit
-            if (!device.selectedControllers.includes(ccNumber) && device.selectedControllers.length < 4) {
+            if (!device.selectedControllers.includes(ccNumber) && device.selectedControllers.length < config.MAX_CONTROLLERS_PER_DEVICE) {
                 device.selectedControllers.push(ccNumber);
             }
         } else {
@@ -1118,7 +1141,7 @@ class DeviceConfiguration {
             
             // Update checkbox state
             checkbox.checked = isSelected;
-            checkbox.disabled = !isSelected && selectedCount >= 4;
+            checkbox.disabled = !isSelected && selectedCount >= config.MAX_CONTROLLERS_PER_DEVICE;
         });
     }
 }

@@ -196,7 +196,7 @@
             <!-- MIDI Controllers Section -->
             <div class="form-section">
               <h4>MIDI Controllers</h4>
-              <p class="section-description">Define up to 4 MIDI controllers for this device:</p>
+              <p class="section-description" id="max-controllers-text">Define MIDI controllers for this device:</p>
               <div id="controllers-container">
                 <!-- Controllers will be added dynamically -->
               </div>
@@ -209,31 +209,6 @@
         <div class="form-actions">
           <button type="button" class="control-btn" onclick="document.getElementById('device-selection-modal').classList.add('hidden');">Cancel</button>
           <button type="submit" form="add-device-form" class="control-btn success">Create Device</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Controller Setup Modal -->
-    <div id="controller-setup-modal" class="modal hidden">
-      <div class="modal-overlay" onclick="document.getElementById('controller-setup-modal').classList.add('hidden');"></div>
-      <div class="modal-content controller-setup-content">
-        <div class="modal-header">
-          <h3 id="controller-setup-title">Setup MIDI Controllers</h3>
-          <button class="close-btn" onclick="document.getElementById('controller-setup-modal').classList.add('hidden');">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="controller-setup-info">
-            <p><strong>Select up to 4 MIDI controllers</strong> that will be available for routing:</p>
-            <p class="controller-count">Selected: <span id="selected-count">0</span> / 4</p>
-          </div>
-          <div class="controller-list-container">
-            <div id="controller-list">
-              <!-- Controller checkboxes will be populated here -->
-            </div>
-          </div>
-          <div class="modal-footer">
-
-          </div>
         </div>
       </div>
     </div>

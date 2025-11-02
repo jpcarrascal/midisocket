@@ -225,11 +225,11 @@ function generateDeviceControllers(device) {
     // Only use custom device controllers
     const deviceControllers = device.controllers || [];
     if (deviceControllers.length > 0) {
-        // Show all configured controllers (up to 4)
-        let controlsToShow = deviceControllers.slice(0, 4); // Limit to 4 for UI
+        // Show all configured controllers (up to max limit)
+        let controlsToShow = deviceControllers.slice(0, config.MAX_CONTROLLERS_PER_DEVICE); // Limit for UI
         console.log(`Showing ${controlsToShow.length} custom controllers for device: ${device.name}`);
         // Group controllers logically if we have many
-        if (controlsToShow.length > 4) {
+        if (controlsToShow.length > config.MAX_CONTROLLERS_PER_DEVICE) {
             const midPoint = Math.ceil(controlsToShow.length / 2);
             const firstGroup = controlsToShow.slice(0, midPoint);
             const secondGroup = controlsToShow.slice(midPoint);
