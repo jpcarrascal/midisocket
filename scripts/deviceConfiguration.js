@@ -752,11 +752,188 @@ class DeviceConfiguration {
     }
 
     /**
-     * Load configuration from file (future enhancement)
+     * Load configuration from file
      */
     loadConfigurationFile() {
-        // TODO: Implement file loading
-        alert('File loading not yet implemented. Use browser storage for now.');
+        // Create hidden file input
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.json';
+        fileInput.style.display = 'none';
+        
+        fileInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            try {
+                // Read file content
+                const text = await this.readFileAsText(file);
+                const config = JSON.parse(text);
+                
+                // Validate configuration format
+                if (!this.validateConfigurationFormat(config)) {
+                    alert('Invalid configuration file format. Please check the file and try again.');
+                    return;
+                }
+                
+                // Confirm before replacing current configuration
+                const deviceCount = config.devices ? config.devices.length : 0;
+                const currentCount = this.configuredDevices.length;
+                
+                const confirmMessage = `Load configuration from "${file.name}"?\n\n` +
+                    `This will replace your current ${currentCount} device(s) with ${deviceCount} device(s) from the file.\n\n` +
+                    `This action cannot be undone.`;
+                
+                if (!confirm(confirmMessage)) {
+                    return;
+                }
+                
+                // Load the configuration
+                this.loadConfigurationFromData(config);
+                
+                alert(`Configuration loaded successfully!\n${deviceCount} device(s) imported from "${file.name}"`);
+                
+            } catch (error) {
+                console.error('Failed to load configuration file:', error);
+                alert(`Failed to load configuration file:\n${error.message}`);
+            } finally {
+                // Clean up
+                document.body.removeChild(fileInput);
+            }
+        });
+        
+        // Trigger file selection
+        document.body.appendChild(fileInput);
+        fileInput.click();
+    }
+
+    /**
+     * Read file as text (Promise-based)
+     */
+    readFileAsText(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = () => reject(new Error('Failed to read file'));
+            reader.readAsText(file);
+        });
+    }
+
+    /**
+     * Validate configuration file format
+     */
+    validateConfigurationFormat(config) {
+        // Check basic structure
+        if (!config || typeof config !== 'object') {
+            return false;
+        }
+        
+        // Check required properties
+        if (!config.devices || !Array.isArray(config.devices)) {
+            return false;
+        }
+        
+        // Validate version (support v1 and v2)
+        const version = config.version || 1;
+        if (version !== 1 && version !== 2) {
+            console.warn('Unsupported configuration version:', version);
+            return false;
+        }
+        
+        // Validate each device
+        for (const device of config.devices) {
+            if (!device || typeof device !== 'object') {
+                return false;
+            }
+            
+            // Check required device properties
+            if (!device.name || typeof device.name !== 'string') {
+                return false;
+            }
+            
+            if (device.id === undefined || device.id === null) {
+                return false;
+            }
+            
+            // Validate controllers if present
+            if (device.controllers && !Array.isArray(device.controllers)) {
+                return false;
+            }
+            
+            // Validate each controller
+            if (device.controllers) {
+                for (const controller of device.controllers) {
+                    if (!controller || typeof controller !== 'object') {
+                        return false;
+                    }
+                    
+                    if (!controller.name || typeof controller.name !== 'string') {
+                        return false;
+                    }
+                    
+                    if (controller.ccNumber === undefined || controller.ccNumber === null) {
+                        return false;
+                    }
+                    
+                    if (!controller.type || (controller.type !== 'continuous' && controller.type !== 'discrete')) {
+                        return false;
+                    }
+                }
+            }
+        }
+        
+        return true;
+    }
+
+    /**
+     * Load configuration from parsed data
+     */
+    loadConfigurationFromData(config) {
+        try {
+            // Clear existing devices
+            this.configuredDevices = [];
+            
+            // Find the highest existing ID to continue auto-incrementing
+            let maxId = 0;
+            
+            // Load devices from config
+            config.devices.forEach(device => {
+                // Ensure device has all required properties with defaults
+                const loadedDevice = {
+                    id: device.id,
+                    name: device.name,
+                    color: device.color || '#4a90e2', // Default color if missing
+                    controllers: device.controllers || [],
+                    assignedInterface: device.assignedInterface || '',
+                    assignedChannel: device.assignedChannel || 1,
+                    status: device.status || 'not_configured',
+                    createdAt: device.createdAt || new Date().toISOString(),
+                    updatedAt: device.updatedAt || device.createdAt || new Date().toISOString()
+                };
+                
+                this.configuredDevices.push(loadedDevice);
+                
+                // Track highest ID
+                if (typeof device.id === 'number' && device.id > maxId) {
+                    maxId = device.id;
+                }
+            });
+            
+            // Update next device ID to continue from highest + 1
+            this.nextDeviceId = maxId + 1;
+            
+            // Save to localStorage
+            this.autoSaveConfiguration();
+            
+            // Update UI
+            this.updateConfigurationTable();
+            
+            console.log(`Configuration loaded: ${this.configuredDevices.length} devices, next ID: ${this.nextDeviceId}`);
+            
+        } catch (error) {
+            console.error('Failed to load configuration data:', error);
+            throw new Error('Failed to process configuration data');
+        }
     }
 
     /**
