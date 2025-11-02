@@ -162,7 +162,7 @@ body {
         font-size: 1.1em;
     }
     
-    .slider {
+    input[type="range"], .slider {
         width: calc(100% - 10px); /* MAXIMUM width to screen edges */
         height: 40px; /* Thicker for better touch */
         margin: 0 5px; /* Minimal margin to edges */
@@ -208,7 +208,7 @@ body {
         padding: 8px 12px;
         border: 2px solid #666;
         border-radius: 6px;
-        background: #2d3748;
+        background: #444444;
         color: #fff;
         cursor: pointer;
         transition: all 0.2s;
@@ -219,14 +219,14 @@ body {
     }
     
     .discrete-option-btn:hover {
-        background: #4a5568;
-        border-color: #718096;
+        background: #666666;
+        border-color: #888888;
     }
     
     .discrete-option-btn.active {
-        background: #007bff;
-        border-color: #007bff;
-        color: #fff;
+        background: #000000 !important;
+        border-color: #000000 !important;
+        color: #fff !important;
     }
 
 }
@@ -289,9 +289,7 @@ body {
         font-size: 1.2em;
     }
     
-    .slider {
-        -webkit-appearance: slider-vertical;
-        appearance: slider-vertical;
+    input[type="range"], .slider {
         writing-mode: bt-lr; /* IE */
         -webkit-writing-mode: vertical-rl; /* WebKit - reverse direction */
         writing-mode: vertical-rl;
@@ -349,7 +347,7 @@ body {
         padding: 6px 8px;
         border: 2px solid #666;
         border-radius: 4px;
-        background: #2d3748;
+        background: #444444;
         color: #fff;
         cursor: pointer;
         transition: all 0.2s;
@@ -359,6 +357,17 @@ body {
         display: flex;
         align-items: center;
         justify-content: center;
+    }
+    
+    .discrete-option-btn:hover {
+        background: #666666;
+        border-color: #888888;
+    }
+    
+    .discrete-option-btn.active {
+        background: #000000 !important;
+        border-color: #000000 !important;
+        color: #fff !important;
     }
 
 }
@@ -448,3 +457,4 @@ body {
     font-size: 0.8em;
   }
 }
+
