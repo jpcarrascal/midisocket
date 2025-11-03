@@ -337,7 +337,7 @@ body {
         display: flex;
         flex-direction: row;
         flex-wrap: wrap;
-        gap: 3px;
+        gap: 2px;
         flex: 1;
         justify-content: flex-start;
         align-content: flex-start;
@@ -347,21 +347,46 @@ body {
     }
     
     .discrete-option-btn {
-        padding: 6px 8px;
+        padding: 3px 5px; /* Further reduced for mobile landscape */
         border: 2px solid #666;
-        border-radius: 4px;
+        border-radius: 3px;
         background: #444444;
         color: #fff;
         cursor: pointer;
         transition: all 0.2s;
-        font-size: 10px;
+        font-size: 9px;
         text-align: center;
-        min-height: 28px;
+        min-height: 20px; /* Smaller height to fit more buttons */
         display: flex;
         align-items: center;
         justify-content: center;
         flex: 0 0 calc(50% - 4px);
         max-width: calc(50% - 4px);
+    }
+    
+    /* Larger screens in landscape - bigger buttons and text */
+    @media screen and (min-width: 768px) and (orientation: landscape) {
+        .discrete-option-btn {
+            padding: 7px 12px;
+            font-size: 12px;
+            min-height: 20px;
+        }
+        
+        .discrete-label {
+            font-size: 0.8em !important;
+        }
+        
+        .discrete-value {
+            font-size: 1.4em !important;
+        }
+        
+        .slider-label {
+            font-size: 0.8em !important;
+        }
+        
+        .slider-value {
+            font-size: 1.4em !important;
+        }
     }
     
     .discrete-option-btn:hover {
