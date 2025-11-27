@@ -87,6 +87,7 @@ function initializeElements() {
         noTracksMessage: document.getElementById('no-tracks-message'),
         trackUrl: document.getElementById('track-url'),
         copyUrlButton: document.getElementById('copy-url'),
+        qrUrlButton: document.getElementById('qr-url'),
         
         // Statistics
         statActiveTracks: document.getElementById('stat-active-tracks'),
@@ -213,6 +214,16 @@ function setupEventListeners() {
     
     // Copy URL button
     app.elements.copyUrlButton.addEventListener('click', onCopyUrl);
+    
+    // QR URL button
+    app.elements.qrUrlButton.addEventListener('click', onShowQrCode);
+    
+    // ESC key handler for QR modal
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeQrModal();
+        }
+    });
 }
 
 // ===== SOCKET EVENT HANDLERS =====
@@ -490,6 +501,41 @@ function onCopyUrl() {
     });
 }
 
+function onShowQrCode() {
+    const url = app.elements.trackUrl.textContent;
+    if (!url || url === 'Loading...') {
+        showError('URL not ready yet');
+        return;
+    }
+    
+    // URL encode the session URL
+    const encodedUrl = encodeURIComponent(url);
+    const qrApiUrl = `https://qrcode.azurewebsites.net/qr?string=${encodedUrl}`;
+    
+    // Show modal
+    const modal = document.getElementById('qr-code-modal');
+    const qrImage = document.getElementById('qr-code-image');
+    
+    // Set up image load handlers
+    qrImage.onload = () => {
+        modal.classList.remove('hidden');
+    };
+    
+    qrImage.onerror = () => {
+        showError('Failed to generate QR code');
+    };
+    
+    // Load the QR code
+    qrImage.src = qrApiUrl;
+}
+
+function closeQrModal() {
+    const modal = document.getElementById('qr-code-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
 // ===== UI UPDATE FUNCTIONS =====
 
 function updateSessionInfo() {
@@ -576,12 +622,12 @@ function updateRoutingMatrix() {
     app.elements.routingTableBody.innerHTML = '';
     
     if (matrixData.length === 0) {
-        // Show empty state
+        // Show empty state message (URL remains always visible)
         app.elements.noTracksMessage.style.display = 'block';
         return;
     }
     
-    // Hide empty state
+    // Hide empty state message (URL remains always visible)
     app.elements.noTracksMessage.style.display = 'none';
     
     // Create rows for each track

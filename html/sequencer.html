@@ -134,6 +134,7 @@
     <!-- Main Routing Matrix -->
     <div id="routing-matrix">
       <h3>🎵 Track Routing Matrix</h3>
+      
       <div id="matrix-container">
         <table id="routing-table">
           <thead>
@@ -154,11 +155,16 @@
         <div id="no-tracks-message" class="empty-state">
           <h4>No tracks connected</h4>
           <p>Waiting for users to join the session...</p>
-          <p>Share this URL with participants:</p>
-          <div id="track-url-display">
-            <code id="track-url">Loading...</code>
-            <button id="copy-url" title="Copy URL to clipboard">📋</button>
-          </div>
+        </div>
+      </div>
+      
+      <!-- Always visible track URL section below the list -->
+      <div id="invite-section" class="invite-section">
+        <p>Share this URL with participants:</p>
+        <div id="track-url-display">
+          <code id="track-url">Loading...</code>
+          <button id="copy-url" title="Copy URL to clipboard">📋</button>
+          <button id="qr-url" title="Show QR code">QR</button>
         </div>
       </div>
     </div>
@@ -210,6 +216,15 @@
           <button type="button" class="control-btn" onclick="document.getElementById('device-selection-modal').classList.add('hidden');">Cancel</button>
           <button type="submit" form="add-device-form" class="control-btn success">Create Device</button>
         </div>
+      </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div id="qr-code-modal" class="modal hidden">
+      <div class="modal-overlay" onclick="closeQrModal()"></div>
+      <div class="modal-content qr-modal-content">
+        <button id="close-qr-modal" class="close-btn" onclick="closeQrModal()">✕</button>
+        <img id="qr-code-image" src="" alt="QR Code" class="qr-code-image">
       </div>
     </div>
 
