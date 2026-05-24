@@ -8,6 +8,7 @@ class DeviceConfiguration {
         this.configuredDevices = []; // User-configured custom devices
         this.availableInterfaces = []; // From MIDI system
         this.nextDeviceId = 1; // Auto-increment ID for new devices
+        this.deviceAssignments = {}; // Maps trackNumber -> {deviceId, deviceName, userInitials}
         
         this.elements = {
             configPanel: null,
@@ -73,7 +74,6 @@ class DeviceConfiguration {
         this.elements.addDeviceForm = document.getElementById('add-device-form');
         this.elements.deviceName = document.getElementById('device-name');
         this.elements.deviceColor = document.getElementById('device-color');
-        this.elements.colorPreview = document.getElementById('color-preview');
         this.elements.controllersContainer = document.getElementById('controllers-container');
         this.elements.addControllerBtn = document.getElementById('add-controller-btn');
         
@@ -87,7 +87,7 @@ class DeviceConfiguration {
     updateDynamicText() {
         const maxControllersText = document.getElementById('max-controllers-text');
         if (maxControllersText) {
-            maxControllersText.textContent = `Define up to ${config.MAX_CONTROLLERS_PER_DEVICE} MIDI controllers for this device:`;
+            maxControllersText.textContent = `MIDI Controllers (up to ${config.MAX_CONTROLLERS_PER_DEVICE})`;
         }
         
         const controllerSelectionText = document.getElementById('controller-selection-text');
@@ -128,12 +128,6 @@ class DeviceConfiguration {
             this.handleCreateDevice();
         });
         
-        this.elements.deviceColor?.addEventListener('input', (e) => {
-            if (this.elements.colorPreview) {
-                this.elements.colorPreview.style.backgroundColor = e.target.value;
-            }
-        });
-        
         this.elements.addControllerBtn?.addEventListener('click', () => this.addControllerForm());
         
         // Keyboard support
@@ -170,11 +164,6 @@ class DeviceConfiguration {
             this.elements.addDeviceForm.reset();
         }
         
-        // Reset color preview
-        if (this.elements.colorPreview && this.elements.deviceColor) {
-            this.elements.colorPreview.style.backgroundColor = this.elements.deviceColor.value;
-        }
-        
         // Clear controllers
         if (this.elements.controllersContainer) {
             this.elements.controllersContainer.innerHTML = '';
@@ -198,59 +187,91 @@ class DeviceConfiguration {
     }
 
     /**
-     * Add a controller form to the modal
+     * Initialize or get the controllers table
+     */
+    getOrCreateControllersTable() {
+        let table = this.elements.controllersContainer.querySelector('table.controllers-table');
+        if (!table) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'controllers-table-wrapper';
+            wrapper.innerHTML = `
+                <table class="controllers-table">
+                    <thead>
+                        <tr>
+                            <th class="remove-col"></th>
+                            <th>Name</th>
+                            <th>CC #</th>
+                            <th>Type</th>
+                            <th>Range(s)</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            `;
+            this.elements.controllersContainer.innerHTML = '';
+            this.elements.controllersContainer.appendChild(wrapper);
+            table = wrapper.querySelector('table.controllers-table');
+        }
+        return table;
+    }
+
+    /**
+     * Add a controller form row to the table
      */
     addControllerForm(controllerData = null) {
         if (this.currentControllerCount >= config.MAX_CONTROLLERS_PER_DEVICE) return;
         
         const controllerIndex = this.currentControllerCount;
-        const controllerForm = document.createElement('div');
-        controllerForm.className = 'controller-form';
-        controllerForm.dataset.index = controllerIndex;
+        const table = this.getOrCreateControllersTable();
+        const tbody = table.querySelector('tbody');
         
-        controllerForm.innerHTML = `
-            <div class="controller-form-header">
-                <h5 class="controller-form-title">Controller ${controllerIndex + 1}</h5>
-                <button type="button" class="remove-controller-btn" onclick="deviceConfig.removeControllerForm(${controllerIndex})">Remove</button>
-            </div>
-            <div class="controller-form-row">
-                <div class="form-group">
-                    <label>Controller Name *</label>
-                    <input type="text" name="controllerName_${controllerIndex}" required placeholder="e.g., Volume, Filter Cutoff" value="${controllerData?.name || ''}">
-                </div>
-                <div class="form-group">
-                    <label>CC Number *</label>
-                    <input type="number" name="ccNumber_${controllerIndex}" min="0" max="127" required placeholder="0-127" value="${controllerData?.ccNumber || ''}">
-                </div>
-                <div class="form-group">
-                    <label>Type *</label>
-                    <select name="ccType_${controllerIndex}" required onchange="deviceConfig.handleControllerTypeChange(${controllerIndex}, this.value)">
-                        <option value="continuous" ${controllerData?.type === 'continuous' ? 'selected' : ''}>Continuous</option>
-                        <option value="discrete" ${controllerData?.type === 'discrete' ? 'selected' : ''}>Discrete</option>
-                    </select>
-                </div>
-            </div>
-            <div class="range-input-container" id="range-container-${controllerIndex}" style="display: ${controllerData?.type === 'discrete' ? 'block' : 'none'};">
-                <div class="form-group">
-                    <label>Range Definition</label>
-                    <textarea name="ccRange_${controllerIndex}" placeholder="e.g., Off: 0-31, On: 32-63, Auto: 64-127">${controllerData?.type === 'discrete' && controllerData?.range ? controllerData.range : ''}</textarea>
-                    <div class="range-example">Example: "Bypass: 0-31, Reverb: 32-95, Shimmer: 96-127"</div>
-                </div>
-            </div>
+        const controllerType = controllerData?.type || 'continuous';
+        const defaultContinuousRange = '0-127';
+        const defaultDiscreteRange = 'Off: 0-63, On: 64-127';
+        const range = controllerType === 'continuous' 
+            ? (controllerData?.minValue !== undefined && controllerData?.maxValue !== undefined 
+                ? `${controllerData.minValue}-${controllerData.maxValue}`
+                : defaultContinuousRange)
+            : (controllerData?.range || defaultDiscreteRange);
+        
+        const row = document.createElement('tr');
+        row.className = 'controller-row';
+        row.dataset.index = controllerIndex;
+        
+        row.innerHTML = `
+            <td class="remove-col">
+                <button type="button" class="remove-controller-btn" onclick="deviceConfig.removeControllerForm(${controllerIndex})">✕</button>
+            </td>
+            <td>
+                <input type="text" name="controllerName_${controllerIndex}" class="inline-input" required placeholder="e.g., Volume" value="${controllerData?.name || ''}">
+            </td>
+            <td>
+                <input type="number" name="ccNumber_${controllerIndex}" class="inline-input cc-number" min="0" max="127" required placeholder="0-127" value="${controllerData?.ccNumber || ''}">
+            </td>
+            <td>
+                <select name="ccType_${controllerIndex}" class="inline-select" required onchange="deviceConfig.handleControllerTypeChange(${controllerIndex}, this.value)">
+                    <option value="continuous" ${controllerType !== 'discrete' ? 'selected' : ''}>Continuous</option>
+                    <option value="discrete" ${controllerType === 'discrete' ? 'selected' : ''}>Discrete</option>
+                </select>
+            </td>
+            <td>
+                <textarea name="ccContinuousRange_${controllerIndex}" class="inline-textarea range-textarea" placeholder="Format: min-max" style="display: ${controllerType !== 'discrete' ? 'block' : 'none'};">${controllerType !== 'discrete' ? range : ''}</textarea>
+                <textarea name="ccRange_${controllerIndex}" class="inline-textarea range-textarea" placeholder="Format: Label: min-max" style="display: ${controllerType === 'discrete' ? 'block' : 'none'};">${controllerType === 'discrete' ? range : ''}</textarea>
+            </td>
         `;
         
-        this.elements.controllersContainer.appendChild(controllerForm);
+        tbody.appendChild(row);
         this.currentControllerCount++;
         this.updateAddControllerButton();
     }
 
     /**
-     * Remove a controller form
+     * Remove a controller row
      */
     removeControllerForm(index) {
-        const controllerForm = this.elements.controllersContainer.querySelector(`[data-index="${index}"]`);
-        if (controllerForm) {
-            controllerForm.remove();
+        const row = this.elements.controllersContainer.querySelector(`.controller-row[data-index="${index}"]`);
+        if (row) {
+            row.remove();
             this.currentControllerCount--;
             this.updateAddControllerButton();
         }
@@ -260,15 +281,23 @@ class DeviceConfiguration {
      * Handle controller type change
      */
     handleControllerTypeChange(index, type) {
-        const rangeContainer = document.getElementById(`range-container-${index}`);
-        if (rangeContainer) {
+        const row = this.elements.controllersContainer.querySelector(`.controller-row[data-index="${index}"]`);
+        if (row) {
+            const continuousRange = row.querySelector(`textarea[name="ccContinuousRange_${index}"]`);
+            const discreteRange = row.querySelector(`textarea[name="ccRange_${index}"]`);
+            
             if (type === 'discrete') {
-                rangeContainer.style.display = 'block';
-                rangeContainer.querySelector('textarea').required = true;
+                if (continuousRange) continuousRange.style.display = 'none';
+                if (discreteRange) {
+                    discreteRange.style.display = 'block';
+                    if (!discreteRange.value) discreteRange.value = 'Off: 0-63, On: 64-127';
+                }
             } else {
-                rangeContainer.style.display = 'none';
-                rangeContainer.querySelector('textarea').required = false;
-                rangeContainer.querySelector('textarea').value = type === 'continuous' ? '0-127' : '';
+                if (continuousRange) {
+                    continuousRange.style.display = 'block';
+                    if (!continuousRange.value) continuousRange.value = '0-127';
+                }
+                if (discreteRange) discreteRange.style.display = 'none';
             }
         }
     }
@@ -313,53 +342,81 @@ class DeviceConfiguration {
                 return;
             }
             
-            // Collect controllers
+            // Collect controllers from table rows
             const controllers = [];
             const usedCCNumbers = new Set();
+            const table = this.elements.controllersContainer.querySelector('table.controllers-table');
+            const rows = table ? table.querySelectorAll('tbody tr.controller-row') : [];
             
-            for (let i = 0; i < this.currentControllerCount; i++) {
-                const controllerName = formData.get(`controllerName_${i}`)?.trim();
-                const ccNumber = parseInt(formData.get(`ccNumber_${i}`));
-                const ccType = formData.get(`ccType_${i}`);
-                const ccRange = formData.get(`ccRange_${i}`)?.trim();
-                
-                // Skip empty controller forms
-                if (!controllerName && !ccNumber && !ccType) continue;
-                
-                // Validate controller data
-                if (!controllerName) {
-                    this.showFormError(`Controller ${i + 1}: Name is required`);
-                    return;
-                }
-                
-                if (isNaN(ccNumber) || ccNumber < 0 || ccNumber > 127) {
-                    this.showFormError(`Controller ${i + 1}: CC number must be between 0-127`);
-                    return;
-                }
-                
-                if (usedCCNumbers.has(ccNumber)) {
-                    this.showFormError(`Controller ${i + 1}: CC number ${ccNumber} is already used`);
-                    return;
-                }
-                
-                if (!ccType) {
-                    this.showFormError(`Controller ${i + 1}: Type is required`);
-                    return;
-                }
-                
-                if (ccType === 'discrete' && !ccRange) {
-                    this.showFormError(`Controller ${i + 1}: Range definition is required for discrete controllers`);
-                    return;
-                }
-                
-                usedCCNumbers.add(ccNumber);
-                
-                controllers.push({
-                    name: controllerName,
-                    ccNumber: ccNumber,
-                    type: ccType,
-                    range: ccType === 'continuous' ? '0-127' : ccRange
+            try {
+                rows.forEach((row, rowIndex) => {
+                    const i = row.dataset.index;
+                    const controllerName = row.querySelector(`input[name="controllerName_${i}"]`)?.value?.trim();
+                    const ccNumber = parseInt(row.querySelector(`input[name="ccNumber_${i}"]`)?.value);
+                    const ccType = row.querySelector(`select[name="ccType_${i}"]`)?.value;
+                    const ccRange = row.querySelector(`textarea[name="ccRange_${i}"]`)?.value?.trim();
+                    const ccContinuousRange = row.querySelector(`textarea[name="ccContinuousRange_${i}"]`)?.value?.trim();
+                    
+                    // Skip empty controller forms
+                    if (!controllerName && !ccNumber && !ccType) return;
+                    
+                    // Validate controller data
+                    if (!controllerName) {
+                        this.showFormError(`Controller ${rowIndex + 1}: Name is required`);
+                        throw new Error('Validation failed');
+                    }
+                    
+                    if (isNaN(ccNumber) || ccNumber < 0 || ccNumber > 127) {
+                        this.showFormError(`Controller ${rowIndex + 1}: CC number must be between 0-127`);
+                        throw new Error('Validation failed');
+                    }
+                    
+                    if (usedCCNumbers.has(ccNumber)) {
+                        this.showFormError(`Controller ${rowIndex + 1}: CC number ${ccNumber} is already used`);
+                        throw new Error('Validation failed');
+                    }
+                    
+                    if (!ccType) {
+                        this.showFormError(`Controller ${rowIndex + 1}: Type is required`);
+                        throw new Error('Validation failed');
+                    }
+                    
+                    usedCCNumbers.add(ccNumber);
+                    
+                    if (ccType === 'continuous') {
+                        const rangeMatch = (ccContinuousRange || '').match(/^(\d+)-(\d+)$/);
+                        if (!rangeMatch) {
+                            this.showFormError(`Controller ${rowIndex + 1}: Range must be in "min-max" format (e.g., "0-127")`);
+                            throw new Error('Validation failed');
+                        }
+                        const minValue = Math.max(0, Math.min(127, parseInt(rangeMatch[1])));
+                        const maxValue = Math.max(0, Math.min(127, parseInt(rangeMatch[2])));
+                        if (minValue >= maxValue) {
+                            this.showFormError(`Controller ${rowIndex + 1}: Min value must be less than Max value`);
+                            throw new Error('Validation failed');
+                        }
+                        controllers.push({
+                            name: controllerName,
+                            ccNumber: ccNumber,
+                            type: ccType,
+                            minValue: minValue,
+                            maxValue: maxValue
+                        });
+                    } else {
+                        if (!ccRange) {
+                            this.showFormError(`Controller ${rowIndex + 1}: Range definition is required for discrete controllers`);
+                            throw new Error('Validation failed');
+                        }
+                        controllers.push({
+                            name: controllerName,
+                            ccNumber: ccNumber,
+                            type: ccType,
+                            range: ccRange
+                        });
+                    }
                 });
+            } catch (e) {
+                return;
             }
             
             if (this.editingDevice) {
@@ -400,6 +457,10 @@ class DeviceConfiguration {
             // Refresh routing matrix
             if (window.updateRoutingMatrix) {
                 window.updateRoutingMatrix();
+            }
+
+            if (window.syncConfiguredDevicesToServer) {
+                window.syncConfiguredDevicesToServer();
             }
             
         } catch (error) {
@@ -468,6 +529,10 @@ class DeviceConfiguration {
         if (window.updateRoutingMatrix) {
             window.updateRoutingMatrix();
         }
+
+        if (window.syncConfiguredDevicesToServer) {
+            window.syncConfiguredDevicesToServer();
+        }
     }
 
     /**
@@ -485,7 +550,12 @@ class DeviceConfiguration {
         this.elements.configTable?.classList.remove('hidden');
         this.elements.noDevicesMessage?.classList.add('hidden');
 
-        this.elements.configTableBody.innerHTML = this.configuredDevices.map(device => `
+        this.elements.configTableBody.innerHTML = this.configuredDevices.map(device => {
+            // Find which user(s) are assigned to this device
+            const assignedUser = this.getAssignedUserForDevice(device.id);
+            const userDisplay = assignedUser ? `<strong>${assignedUser}</strong>` : '<em>---</em>';
+            
+            return `
             <tr data-device-id="${device.id}" style="background-color: ${device.color}15;">
                 <td class="device-name-cell">
                     <div class="device-color-indicator" style="background-color: ${device.color};"></div>
@@ -493,6 +563,9 @@ class DeviceConfiguration {
                         <strong>${device.name}</strong>
                         <div class="device-details">${(device.controllers || []).length} controller${(device.controllers || []).length !== 1 ? 's' : ''}</div>
                     </div>
+                </td>
+                <td class="user-cell">
+                    ${userDisplay}
                 </td>
                 <td>
                     <select class="interface-select" onchange="deviceConfig.updateDeviceInterface(${device.id}, this.value)">
@@ -525,7 +598,8 @@ class DeviceConfiguration {
                     </button>
                 </td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
     }
 
     /**
@@ -546,6 +620,10 @@ class DeviceConfiguration {
             
             // Notify tracks using this device about the interface change
             this.notifyTracksOfDeviceChange(deviceId);
+
+            if (window.syncConfiguredDevicesToServer) {
+                window.syncConfiguredDevicesToServer();
+            }
         }
     }
 
@@ -561,6 +639,10 @@ class DeviceConfiguration {
             
             // Notify tracks using this device about the channel change
             this.notifyTracksOfDeviceChange(deviceId);
+
+            if (window.syncConfiguredDevicesToServer) {
+                window.syncConfiguredDevicesToServer();
+            }
         }
     }
 
@@ -636,6 +718,33 @@ class DeviceConfiguration {
     updateAvailableInterfaces(interfaces) {
         this.availableInterfaces = interfaces;
         this.updateConfigurationTable();
+    }
+
+    /**
+     * Update assigned users display in device configuration table
+     */
+    updateAssignedUsers(assignments) {
+        this.deviceAssignments = assignments || {};
+        console.log('Updating device table with assignments:', this.deviceAssignments);
+        
+        // Update the configuration table to reflect new assignments
+        if (this.elements.configTableBody) {
+            this.updateConfigurationTable();
+        }
+    }
+
+    /**
+     * Get the user initials assigned to a specific device
+     */
+    getAssignedUserForDevice(deviceId) {
+        // Search through assignments to find which track(s) have this device
+        for (const trackNum in this.deviceAssignments) {
+            const assignment = this.deviceAssignments[trackNum];
+            if (assignment && assignment.deviceId === deviceId) {
+                return assignment.userInitials || 'Unknown';
+            }
+        }
+        return null; // No user assigned to this device
     }
 
     /**
@@ -748,11 +857,25 @@ class DeviceConfiguration {
                 this.configuredDevices = (config.devices || []).map((device, index) => {
                     // Migration: ensure all devices have required properties
                     const deviceId = device.id || device.deviceId || (this.nextDeviceId + index);
+                    const controllers = (device.controllers || []).map(ctrl => {
+                        if (ctrl.type === 'continuous') {
+                            // Migrate: parse range string or default to 0-127
+                            let minValue = ctrl.minValue;
+                            let maxValue = ctrl.maxValue;
+                            if (minValue === undefined || maxValue === undefined) {
+                                const rangeMatch = (ctrl.range || '').match(/(\d+).*?(\d+)/);
+                                minValue = rangeMatch ? parseInt(rangeMatch[1]) : 0;
+                                maxValue = rangeMatch ? parseInt(rangeMatch[2]) : 127;
+                            }
+                            return { name: ctrl.name, ccNumber: ctrl.ccNumber, type: ctrl.type, minValue, maxValue };
+                        }
+                        return ctrl;
+                    });
                     return {
                         id: parseInt(deviceId), // Ensure it's a number
                         name: device.name || 'Unknown Device',
                         color: device.color || '#4a90e2',
-                        controllers: device.controllers || [], // Ensure controllers array exists
+                        controllers: controllers,
                         assignedInterface: device.assignedInterface || '',
                         assignedChannel: device.assignedChannel || 1,
                         status: device.status || 'not_configured'
@@ -922,11 +1045,24 @@ class DeviceConfiguration {
             // Load devices from config
             config.devices.forEach(device => {
                 // Ensure device has all required properties with defaults
+                const controllers = (device.controllers || []).map(ctrl => {
+                    if (ctrl.type === 'continuous') {
+                        let minValue = ctrl.minValue;
+                        let maxValue = ctrl.maxValue;
+                        if (minValue === undefined || maxValue === undefined) {
+                            const rangeMatch = (ctrl.range || '').match(/(\d+).*?(\d+)/);
+                            minValue = rangeMatch ? parseInt(rangeMatch[1]) : 0;
+                            maxValue = rangeMatch ? parseInt(rangeMatch[2]) : 127;
+                        }
+                        return { name: ctrl.name, ccNumber: ctrl.ccNumber, type: ctrl.type, minValue, maxValue };
+                    }
+                    return ctrl;
+                });
                 const loadedDevice = {
                     id: device.id,
                     name: device.name,
                     color: device.color || '#4a90e2', // Default color if missing
-                    controllers: device.controllers || [],
+                    controllers: controllers,
                     assignedInterface: device.assignedInterface || '',
                     assignedChannel: device.assignedChannel || 1,
                     status: device.status || 'not_configured',
@@ -950,6 +1086,10 @@ class DeviceConfiguration {
             
             // Update UI
             this.updateConfigurationTable();
+
+            if (window.syncConfiguredDevicesToServer) {
+                window.syncConfiguredDevicesToServer();
+            }
             
             console.log(`Configuration loaded: ${this.configuredDevices.length} devices, next ID: ${this.nextDeviceId}`);
             

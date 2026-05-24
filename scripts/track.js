@@ -198,7 +198,7 @@ function normalizeControllerData(control) {
             control_name: control.name,
             cc_number: control.ccNumber,
             type: control.type,
-            value_range: control.type === 'continuous' ? '0-127' : control.range,
+            value_range: control.type === 'continuous' ? `${control.minValue ?? 0}-${control.maxValue ?? 127}` : control.range,
             description: `${control.name} (${control.type})`
         };
     }
@@ -306,16 +306,18 @@ function createController(control, parentGroup = null) {
     } else {
         // Continuous controller - create slider
         console.log("Creating continuous controller");
-        // Parse the value range to determine the max value
-        let maxValue = 127; // Default MIDI range
+        // Parse the value range to determine min/max values
+        let minValue = 0;
+        let maxValue = 127;
         if (control.value_range) {
             const rangeMatch = control.value_range.match(/(\d+).*?(\d+)/);
             if (rangeMatch) {
+                minValue = parseInt(rangeMatch[1]);
                 maxValue = parseInt(rangeMatch[2]);
             }
         }
-        const defaultValue = Math.floor(maxValue / 2); // Start at middle value
-        createSlider(group, control.control_name, control.cc_number, defaultValue, maxValue);
+        const defaultValue = Math.round((minValue + maxValue) / 2);
+        createSlider(group, control.control_name, control.cc_number, defaultValue, maxValue, minValue);
     }
     
     // Add description as tooltip or subtitle if available
@@ -454,7 +456,7 @@ function createControllerGroup(title) {
     return group;
 }
 
-function createSlider(parent, name, ccNumber, defaultValue, maxValue = 127) {
+function createSlider(parent, name, ccNumber, defaultValue, maxValue = 127, minValue = 0) {
     const container = document.createElement('div');
     container.className = 'slider-container';
     
@@ -474,7 +476,7 @@ function createSlider(parent, name, ccNumber, defaultValue, maxValue = 127) {
     const slider = document.createElement('input');
     slider.type = 'range';
     slider.className = 'slider';
-    slider.min = '0';
+    slider.min = minValue.toString();
     slider.max = maxValue.toString();
     slider.value = defaultValue;
     slider.dataset.cc = ccNumber;

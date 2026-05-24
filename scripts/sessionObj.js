@@ -87,6 +87,8 @@ class Session {
         this.allocationMethod = allocationMethod;
         this.playing = false;
         this.attributes = Object();
+        this.deviceAssignments = new Map(); // Maps trackNumber -> {deviceId, deviceName, userInitials}
+        this.configuredDevices = []; // List of devices configured in sequencer
     }
 
     allocateAvailableParticipant(socketID, initials) {
@@ -248,6 +250,75 @@ class Session {
 
     getAttribute(k) {
         return this.attributes[k];
+    }
+
+    // Device assignment methods
+    assignDeviceToTrack(trackNumber, deviceId, deviceName, userInitials) {
+        this.deviceAssignments.set(trackNumber, { deviceId, deviceName, userInitials });
+    }
+
+    getDeviceForTrack(trackNumber) {
+        return this.deviceAssignments.get(trackNumber) || null;
+    }
+
+    getTrackForDevice(deviceId) {
+        for (let [track, assignment] of this.deviceAssignments.entries()) {
+            if (assignment.deviceId === deviceId) {
+                return track;
+            }
+        }
+        return null;
+    }
+
+    clearDeviceAssignment(trackNumber) {
+        this.deviceAssignments.delete(trackNumber);
+    }
+
+    getAssignedDeviceIds() {
+        const ids = [];
+        for (let assignment of this.deviceAssignments.values()) {
+            ids.push(assignment.deviceId);
+        }
+        return ids;
+    }
+
+    getDeviceAssignments() {
+        return Object.fromEntries(this.deviceAssignments);
+    }
+
+    // Device list management methods
+    setConfiguredDevices(devices) {
+        this.configuredDevices = devices || [];
+
+        // Drop assignments that reference devices no longer configured.
+        const validIds = new Set(this.configuredDevices.map(device => device.id));
+        for (const [track, assignment] of this.deviceAssignments.entries()) {
+            if (!validIds.has(assignment.deviceId)) {
+                this.deviceAssignments.delete(track);
+            }
+        }
+    }
+
+    getConfiguredDevices() {
+        return this.configuredDevices;
+    }
+
+    getRandomUnassignedDevice() {
+        if (!this.configuredDevices || this.configuredDevices.length === 0) {
+            return null;
+        }
+        
+        const assignedIds = this.getAssignedDeviceIds();
+        const available = this.configuredDevices.filter(device => 
+            !assignedIds.includes(device.id)
+        );
+        
+        if (available.length === 0) {
+            return null; // All devices are assigned
+        }
+        
+        const randomIndex = Math.floor(Math.random() * available.length);
+        return available[randomIndex];
     }
 }
 

@@ -136,17 +136,34 @@ io.on('connection', (socket) => {
         
         logger.info(`#${session} @[${initials}] joined session on track ${track}`);
         
-        // Notify sequencer about new track
+        // Auto-assign a random unassigned device to this track
+        const device = currentSession.getRandomUnassignedDevice();
+        if (device) {
+            currentSession.assignDeviceToTrack(track, device.id, device.name, initials);
+        }
+        
+        // Notify sequencer about new track and updated device assignments
         socket.broadcast.to(session).emit('track joined', { 
             initials: initials, 
             track: track, 
             socketID: socket.id 
         });
         
+        // Broadcast updated device assignments to sequencer
+        const seqID = currentSession.getSeqID();
+        if (seqID) {
+            io.to(seqID).emit('device-assignments-updated', {
+                assignments: currentSession.getDeviceAssignments()
+            });
+        }
+        
         // Handle track disconnection
         socket.on('disconnect', () => {
             const trackToDelete = currentSession.getParticipantNumber(socket.id);
             currentSession.releaseParticipant(socket.id);
+            
+            // Clear device assignment for this track
+            currentSession.clearDeviceAssignment(trackToDelete);
             
             // Notify sequencer about track leaving
             io.to(session).emit('track left', {
@@ -154,6 +171,14 @@ io.on('connection', (socket) => {
                 initials: initials, 
                 socketID: socket.id
             });
+            
+            // Broadcast updated device assignments to sequencer
+            const seqID = currentSession.getSeqID();
+            if (seqID) {
+                io.to(seqID).emit('device-assignments-updated', {
+                    assignments: currentSession.getDeviceAssignments()
+                });
+            }
             
             logger.info(`#${session} @[${initials}] (${socket.id}) disconnected, clearing track ${trackToDelete}`);
         });
@@ -219,18 +244,33 @@ io.on('connection', (socket) => {
         console.log('Track requesting assignment:', msg.socketID);
         const currentSession = sessions.select(session);
         if (currentSession) {
-            const seqID = currentSession.getSeqID();
             const trackNumber = currentSession.getParticipantNumber(socket.id);
-            console.log('Forwarding to sequencer:', seqID, 'track:', trackNumber);
-            if (seqID) {
-                // Forward request to sequencer to get routing information
-                io.to(seqID).emit('get-track-assignment', {
+            const assignment = currentSession.getDeviceForTrack(trackNumber);
+
+            if (assignment) {
+                const configuredDevices = currentSession.getConfiguredDevices() || [];
+                const fullDevice = configuredDevices.find(d => d.id === assignment.deviceId) || null;
+
+                io.to(msg.socketID).emit('track-assignment', {
                     socketID: msg.socketID,
-                    track: trackNumber
+                    device: fullDevice,
+                    channel: (fullDevice && Number.isInteger(fullDevice.assignedChannel))
+                        ? (fullDevice.assignedChannel - 1)
+                        : 0,
+                    trackId: trackNumber.toString(),
+                    trackNumber: trackNumber + 1
                 });
-            } else {
-                console.warn('No sequencer ID found for session:', session);
+                return;
             }
+
+            // No auto-assignment available (e.g., no configured devices or all in use)
+            io.to(msg.socketID).emit('track-assignment', {
+                socketID: msg.socketID,
+                device: null,
+                channel: 0,
+                trackId: trackNumber.toString(),
+                trackNumber: trackNumber + 1
+            });
         } else {
             console.warn('No session found:', session);
         }
@@ -241,6 +281,22 @@ io.on('connection', (socket) => {
         console.log('Sequencer sending track assignment:', msg.socketID);
         // Forward assignment response directly to the requesting track
         io.to(msg.socketID).emit('track-assignment', msg);
+    });
+    
+    // Sequencer sends configured devices list for auto-assignment
+    socket.on('devices-configured', (msg) => {
+        console.log('Sequencer configured devices:', msg.devices?.length || 0);
+        const currentSession = sessions.select(session);
+        if (currentSession) {
+            currentSession.setConfiguredDevices(msg.devices || []);
+
+            const seqID = currentSession.getSeqID();
+            if (seqID) {
+                io.to(seqID).emit('device-assignments-updated', {
+                    assignments: currentSession.getDeviceAssignments()
+                });
+            }
+        }
     });
     
     // Track sends MIDI message to be routed by sequencer

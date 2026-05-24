@@ -14,6 +14,7 @@ let app = {
     // Session info
     sessionName: null,
     isPlaying: false,
+    deviceAssignments: {}, // Maps trackNumber -> {deviceId, deviceName, userInitials}
     
     // UI elements
     elements: {},
@@ -25,6 +26,26 @@ let app = {
 
 // Global device configuration instance
 let deviceConfig = null;
+
+function syncConfiguredDevicesToServer() {
+    if (!app.socket || !app.socket.connected || !deviceConfig) {
+        return;
+    }
+
+    const configuredDevices = deviceConfig.getConfiguredDevices().map(device => ({
+        id: device.id,
+        name: device.name,
+        color: device.color,
+        assignedChannel: device.assignedChannel,
+        assignedInterface: device.assignedInterface,
+        controllers: device.controllers || []
+    }));
+
+    app.socket.emit('devices-configured', {
+        devices: configuredDevices
+    });
+    console.log('Sent configured devices to server:', configuredDevices.length);
+}
 
 // Initialize application when page loads
 document.addEventListener('DOMContentLoaded', async function() {
@@ -186,8 +207,38 @@ function initializeSocket() {
     app.socket.on('track left', onTrackLeft);
     app.socket.on('track-midi-message', onTrackMidiMessage);
     app.socket.on('get-track-assignment', onGetTrackAssignment);
+    app.socket.on('device-assignments-updated', onDeviceAssignmentsUpdated);
     app.socket.on('sequencer exists', onSequencerExists);
     app.socket.on('error', onSocketError);
+}
+
+function updateSessionStatus() {
+    if (!app.elements.sessionStatus) return;
+
+    const isConnected = Boolean(app.socket?.connected);
+
+    let statusClass = 'session-status-not-ready';
+    let statusLabel = 'Not Ready';
+
+    if (isConnected) {
+        if (app.isPlaying) {
+            statusClass = 'session-status-running';
+            statusLabel = 'Running';
+        } else {
+            statusClass = 'session-status-ready';
+            statusLabel = 'Ready';
+        }
+    }
+
+    app.elements.sessionStatus.innerHTML = `Status: <strong class="session-status-badge ${statusClass}">${statusLabel}</strong>`;
+
+    if (app.elements.playButton) {
+        app.elements.playButton.disabled = isConnected && app.isPlaying;
+    }
+
+    if (app.elements.pauseButton) {
+        app.elements.pauseButton.disabled = !isConnected || !app.isPlaying;
+    }
 }
 
 /**
@@ -230,13 +281,17 @@ function setupEventListeners() {
 
 function onSocketConnect() {
     console.log('Socket connected:', app.socket.id);
-    app.elements.sessionStatus.innerHTML = '<strong>Connected</strong>';
+    updateSessionStatus();
     showInfo('Connected to session: ' + app.sessionName);
+
+    // Send current devices to server for auto-assignment
+    syncConfiguredDevicesToServer();
 }
 
 function onSocketDisconnect() {
     console.log('Socket disconnected');
-    app.elements.sessionStatus.innerHTML = '<strong>Disconnected</strong>';
+    app.isPlaying = false;
+    updateSessionStatus();
     showError('Disconnected from server');
 }
 
@@ -246,6 +301,9 @@ function onTrackJoined(data) {
     
     // Add track to routing matrix
     app.routingMatrix.addTrack(trackId, data.socketID, data.initials);
+
+    // If server assignment arrived before this track row existed, apply it now.
+    applyServerAssignmentsToRoutingMatrix();
     
     // Update UI
     updateRoutingMatrix();
@@ -358,7 +416,61 @@ function onSequencerExists(data) {
 
 function onSocketError(error) {
     console.error('Socket error:', error);
+    updateSessionStatus();
     showError('Socket error: ' + error.message);
+}
+
+function applyServerAssignmentsToRoutingMatrix() {
+    if (!app.routingMatrix || !deviceConfig) return;
+
+    const assignments = app.deviceAssignments || {};
+    const assignedTrackIds = new Set(Object.keys(assignments).map(id => id.toString()));
+
+    // Apply authoritative server assignments to the routing matrix.
+    Object.entries(assignments).forEach(([trackId, assignment]) => {
+        if (!assignment || assignment.deviceId === undefined || assignment.deviceId === null) return;
+
+        const configuredDevice = deviceConfig.getDeviceConfig(assignment.deviceId);
+        const channel = (configuredDevice && Number.isInteger(configuredDevice.assignedChannel))
+            ? configuredDevice.assignedChannel - 1
+            : 0;
+
+        app.routingMatrix.updateRouting(trackId.toString(), {
+            deviceId: `device:${assignment.deviceId}`,
+            channel,
+            enabled: true,
+            channelLocked: true
+        });
+    });
+
+    // Clear routing for active tracks that no longer have an assignment.
+    const activeTracks = app.routingMatrix.getAllTracks();
+    for (const [trackId] of activeTracks) {
+        if (!assignedTrackIds.has(trackId.toString())) {
+            app.routingMatrix.updateRouting(trackId.toString(), {
+                deviceId: null,
+                enabled: false,
+                channelLocked: false
+            });
+        }
+    }
+}
+
+function onDeviceAssignmentsUpdated(data) {
+    console.log('Device assignments updated:', data.assignments);
+    
+    // Store assignments in app for UI updates
+    app.deviceAssignments = data.assignments || {};
+
+    // Keep routing matrix in sync with server-side assignment truth.
+    applyServerAssignmentsToRoutingMatrix();
+    
+    // Update device configuration table to show assigned users
+    if (deviceConfig) {
+        deviceConfig.updateAssignedUsers(app.deviceAssignments);
+    }
+
+    updateRoutingMatrix();
 }
 
 // ===== MIDI EVENT HANDLERS =====
@@ -460,9 +572,15 @@ function onRoutingChange(trackId, routing) {
 // ===== UI EVENT HANDLERS =====
 
 function onPlaySession() {
+    if (!app.socket?.connected) {
+        app.isPlaying = false;
+        updateSessionStatus();
+        showError('Session is not ready. Reconnect to the backend before starting.');
+        return;
+    }
+
     app.isPlaying = true;
-    app.elements.playButton.disabled = true;
-    app.elements.pauseButton.disabled = false;
+    updateSessionStatus();
     
     // Emit session play event
     app.socket.emit('session play', { socketID: app.socket.id });
@@ -471,9 +589,14 @@ function onPlaySession() {
 }
 
 function onPauseSession() {
+    if (!app.socket?.connected) {
+        app.isPlaying = false;
+        updateSessionStatus();
+        return;
+    }
+
     app.isPlaying = false;
-    app.elements.playButton.disabled = false;
-    app.elements.pauseButton.disabled = true;
+    updateSessionStatus();
     
     // Emit session pause event
     app.socket.emit('session pause', { socketID: app.socket.id });
@@ -542,6 +665,8 @@ function updateSessionInfo() {
     if (app.elements.sessionName) {
         app.elements.sessionName.textContent = app.sessionName || '-';
     }
+
+    updateSessionStatus();
 }
 
 function updateTrackUrl() {
@@ -922,3 +1047,4 @@ function showInfo(message) {
 window.updateRoutingMatrix = updateRoutingMatrix;
 window.deviceConfig = () => deviceConfig;
 window.app = app;
+window.syncConfiguredDevicesToServer = syncConfiguredDevicesToServer;

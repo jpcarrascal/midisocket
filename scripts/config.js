@@ -8,7 +8,7 @@
         NUM_STEPS       : 16,
         MAX_NUM_ROUNDS  : 20,
         // Device Configuration
-        MAX_CONTROLLERS_PER_DEVICE : 6,  // Change this to 6 to allow more CCs per device
+        MAX_CONTROLLERS_PER_DEVICE : 8,
         // MIDI Configuration
         MIDI_CC_MIN     : 0,      // Minimum MIDI CC value
         MIDI_CC_MAX     : 127,    // Maximum MIDI CC value
