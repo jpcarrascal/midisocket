@@ -99,6 +99,25 @@ body {
     color: rgba(255, 255, 255, 0.8);
 }
 
+#slot-countdown {
+    margin: 0.15em 0 0 0;
+    font-size: 0.7em;
+    color: rgba(255, 255, 255, 0.95);
+    letter-spacing: 0.02em;
+}
+
+.queue-message {
+    margin: 0.25em auto 0.35em auto;
+    padding: 0.5em 0.75em;
+    max-width: 92vw;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.45);
+    color: #ffffff;
+    text-align: center;
+    font-size: 0.8em;
+    line-height: 1.35;
+}
+
 /* Controller Container - MAXIMUM screen usage */
 #controller-container {
     display: none;

@@ -89,6 +89,9 @@ class Session {
         this.attributes = Object();
         this.deviceAssignments = new Map(); // Maps trackNumber -> {deviceId, deviceName, userInitials}
         this.configuredDevices = []; // List of devices configured in sequencer
+        this.waitingQueue = []; // FIFO queue of waiting sockets: [{socketID, initials, queuedAt}]
+        this.slotDurationSec = 60; // Default active slot length (MM:SS => 01:00)
+        this.trackSlots = new Map(); // Maps trackNumber -> {socketID, expiresAt}
     }
 
     allocateAvailableParticipant(socketID, initials) {
@@ -133,6 +136,9 @@ class Session {
             if(this.participants[i].socketID == socketID) {
                 this.participants[i] = "";
                 this.sequencer.clearTrackInitials(i);
+                this.clearDeviceAssignment(i);
+                this.clearTrackSlot(i);
+                break;
             }
         }
     }
@@ -157,9 +163,12 @@ class Session {
 
     releaseAllParticipants() {
         for(var i=0; i<this.participants.length; i++) {
-            this.participants[i] == "";
+            this.participants[i] = "";
             this.sequencer.clearTrackInitials(i);
         }
+        this.deviceAssignments.clear();
+        this.trackSlots.clear();
+        this.waitingQueue = [];
     }
 
     incrementAllCounters() {
@@ -240,6 +249,96 @@ class Session {
         this.seqID = "";
         this.name = "";
         this.releaseAllParticipants();
+    }
+
+    setSlotDurationSec(seconds) {
+        const parsed = parseInt(seconds, 10);
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+            return;
+        }
+        this.slotDurationSec = parsed;
+    }
+
+    getSlotDurationSec() {
+        return this.slotDurationSec;
+    }
+
+    setTrackSlot(trackNumber, socketID, expiresAt) {
+        this.trackSlots.set(trackNumber, { socketID, expiresAt });
+    }
+
+    getTrackSlot(trackNumber) {
+        return this.trackSlots.get(trackNumber) || null;
+    }
+
+    getActiveSlotCount() {
+        return this.trackSlots.size;
+    }
+
+    clearTrackSlot(trackNumber) {
+        this.trackSlots.delete(trackNumber);
+    }
+
+    // Queue management methods
+    enqueueWaitingUser(socketID, initials) {
+        const existingIndex = this.waitingQueue.findIndex(entry => entry.socketID === socketID);
+        if (existingIndex >= 0) {
+            return existingIndex + 1;
+        }
+
+        this.waitingQueue.push({
+            socketID,
+            initials,
+            queuedAt: Date.now()
+        });
+        return this.waitingQueue.length;
+    }
+
+    dequeueWaitingUser() {
+        if (this.waitingQueue.length === 0) {
+            return null;
+        }
+        return this.waitingQueue.shift();
+    }
+
+    peekWaitingUser() {
+        return this.waitingQueue.length > 0 ? this.waitingQueue[0] : null;
+    }
+
+    prependWaitingUser(entry) {
+        if (!entry) return;
+        this.waitingQueue.unshift(entry);
+    }
+
+    removeWaitingUser(socketID) {
+        const index = this.waitingQueue.findIndex(entry => entry.socketID === socketID);
+        if (index >= 0) {
+            this.waitingQueue.splice(index, 1);
+            return true;
+        }
+        return false;
+    }
+
+    isUserQueued(socketID) {
+        return this.waitingQueue.some(entry => entry.socketID === socketID);
+    }
+
+    getQueuePosition(socketID) {
+        const index = this.waitingQueue.findIndex(entry => entry.socketID === socketID);
+        return index >= 0 ? index + 1 : -1;
+    }
+
+    getWaitingQueue() {
+        return [...this.waitingQueue];
+    }
+
+    getWaitingQueueLength() {
+        return this.waitingQueue.length;
+    }
+
+    getNextQueuedInitials() {
+        const next = this.peekWaitingUser();
+        return next ? next.initials : null;
     }
 
     ///////////

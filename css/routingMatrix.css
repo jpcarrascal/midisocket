@@ -61,6 +61,12 @@ html {
     font-weight: 600;
 }
 
+#queue-length strong,
+#active-slots strong,
+#next-in-queue strong {
+    color: #f7fafc;
+}
+
 .session-status-badge {
     display: inline-block;
     padding: 4px 10px;
@@ -90,6 +96,36 @@ html {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
+}
+
+#slot-timer-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+#slot-duration-label {
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+#slot-duration {
+    width: 72px;
+    padding: 8px 10px;
+    border: 1px solid #4a5568;
+    border-radius: 6px;
+    background: #1f2937;
+    color: #ffffff;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 0.04em;
+}
+
+#slot-duration:focus {
+    outline: none;
+    border-color: #a0aec0;
 }
 
 /* Control Panel - Override old sequencer.css fixed positioning */

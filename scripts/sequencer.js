@@ -15,6 +15,7 @@ let app = {
     sessionName: null,
     isPlaying: false,
     deviceAssignments: {}, // Maps trackNumber -> {deviceId, deviceName, userInitials}
+    slotDurationSec: 60,
     
     // UI elements
     elements: {},
@@ -87,11 +88,16 @@ function initializeElements() {
         sessionName: document.getElementById('session-name'),
         sessionStatus: document.getElementById('session-status'),
         midiStatus: document.getElementById('midi-status'),
+        queueLength: document.getElementById('queue-length'),
+        activeSlots: document.getElementById('active-slots'),
+        nextInQueue: document.getElementById('next-in-queue'),
         
         // Controls
         playButton: document.getElementById('play-button'),
         pauseButton: document.getElementById('pause-button'),
         panicAllButton: document.getElementById('panic-all'),
+        slotDurationInput: document.getElementById('slot-duration'),
+        slotDurationApplyButton: document.getElementById('slot-duration-apply'),
         deviceConfigToggle: document.getElementById('device-config-toggle'),
         infoToggle: document.getElementById('info-toggle'),
         statsToggle: document.getElementById('stats-toggle'),
@@ -208,6 +214,8 @@ function initializeSocket() {
     app.socket.on('track-midi-message', onTrackMidiMessage);
     app.socket.on('get-track-assignment', onGetTrackAssignment);
     app.socket.on('device-assignments-updated', onDeviceAssignmentsUpdated);
+    app.socket.on('queue-updated', onQueueUpdated);
+    app.socket.on('slot-duration-updated', onSlotDurationUpdated);
     app.socket.on('sequencer exists', onSequencerExists);
     app.socket.on('error', onSocketError);
 }
@@ -249,6 +257,13 @@ function setupEventListeners() {
     app.elements.playButton.addEventListener('click', onPlaySession);
     app.elements.pauseButton.addEventListener('click', onPauseSession);
     app.elements.panicAllButton.addEventListener('click', onPanicAll);
+    app.elements.slotDurationApplyButton.addEventListener('click', onApplySlotDuration);
+    app.elements.slotDurationInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            onApplySlotDuration();
+        }
+    });
     
     // Panel toggles
     app.elements.deviceConfigToggle.addEventListener('click', () => {
@@ -275,6 +290,66 @@ function setupEventListeners() {
             closeQrModal();
         }
     });
+}
+
+function parseDurationToSeconds(inputValue) {
+    const value = (inputValue || '').trim();
+
+    // Numeric shorthand support:
+    // - <= 59 means seconds (00:SS)
+    // - > 59 means total seconds converted to MM:SS
+    if (/^\d+$/.test(value)) {
+        const total = parseInt(value, 10);
+        if (!Number.isFinite(total) || total <= 0) return null;
+        return total;
+    }
+
+    const match = value.match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return null;
+
+    const minutes = parseInt(match[1], 10);
+    const seconds = parseInt(match[2], 10);
+    if (!Number.isFinite(minutes) || !Number.isFinite(seconds)) return null;
+    if (seconds < 0 || seconds > 59) return null;
+
+    const total = (minutes * 60) + seconds;
+    if (total <= 0) return null;
+    return total;
+}
+
+function formatSecondsAsMMSS(totalSeconds) {
+    const value = Math.max(0, parseInt(totalSeconds || 0, 10));
+    const minutes = Math.floor(value / 60).toString().padStart(2, '0');
+    const seconds = (value % 60).toString().padStart(2, '0');
+    return `${minutes}:${seconds}`;
+}
+
+function onApplySlotDuration() {
+    if (!app.socket || !app.socket.connected) {
+        showError('Connect to the session before applying slot time.');
+        return;
+    }
+
+    const seconds = parseDurationToSeconds(app.elements.slotDurationInput.value);
+    if (!seconds) {
+        showError('Slot time must use MM:SS format (example: 01:00).');
+        return;
+    }
+
+    // Normalize any accepted input format back to MM:SS in the UI.
+    app.elements.slotDurationInput.value = formatSecondsAsMMSS(seconds);
+
+    app.socket.emit('set-slot-duration', { seconds });
+}
+
+function onSlotDurationUpdated(data) {
+    const seconds = parseInt(data?.seconds, 10);
+    if (!Number.isFinite(seconds) || seconds <= 0) return;
+
+    app.slotDurationSec = seconds;
+    if (app.elements.slotDurationInput) {
+        app.elements.slotDurationInput.value = formatSecondsAsMMSS(seconds);
+    }
 }
 
 // ===== SOCKET EVENT HANDLERS =====
@@ -471,6 +546,24 @@ function onDeviceAssignmentsUpdated(data) {
     }
 
     updateRoutingMatrix();
+}
+
+function onQueueUpdated(data) {
+    const queueLength = Number.isFinite(parseInt(data?.length, 10)) ? parseInt(data.length, 10) : 0;
+    const activeSlots = Number.isFinite(parseInt(data?.activeSlots, 10)) ? parseInt(data.activeSlots, 10) : 0;
+    const nextInitials = (data?.nextInitials && `${data.nextInitials}`.trim().length > 0)
+        ? `${data.nextInitials}`
+        : '---';
+
+    if (app.elements.queueLength) {
+        app.elements.queueLength.innerHTML = `Queue: <strong>${queueLength}</strong>`;
+    }
+    if (app.elements.activeSlots) {
+        app.elements.activeSlots.innerHTML = `Active Slots: <strong>${activeSlots}</strong>`;
+    }
+    if (app.elements.nextInQueue) {
+        app.elements.nextInQueue.innerHTML = `Next: <strong>${nextInitials}</strong>`;
+    }
 }
 
 // ===== MIDI EVENT HANDLERS =====

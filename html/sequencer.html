@@ -24,6 +24,9 @@
         <span id="session-name">Session: <strong>-</strong></span>
         <span id="session-status">Status: <strong class="session-status-badge session-status-not-ready">Not Ready</strong></span>
         <span id="midi-status">MIDI: <strong>Loading...</strong></span>
+        <span id="queue-length">Queue: <strong>0</strong></span>
+        <span id="active-slots">Active Slots: <strong>0</strong></span>
+        <span id="next-in-queue">Next: <strong>---</strong></span>
       </div>
 
       <div id="session-controls">
@@ -36,6 +39,13 @@
           </button>
           <button id="panic-all" class="control-btn danger" title="Send panic (all notes off) to all devices">
             🛑 Panic All
+          </button>
+        </div>
+        <div id="slot-timer-controls">
+          <label for="slot-duration" id="slot-duration-label">Track Slot Time</label>
+          <input id="slot-duration" type="text" value="01:00" maxlength="5" placeholder="MM:SS" title="Set active time per track (MM:SS)">
+          <button id="slot-duration-apply" class="control-btn secondary" title="Apply slot time">
+            ⏱️ Apply
           </button>
         </div>
       </div>

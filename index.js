@@ -30,6 +30,224 @@ const logger = createLogger({
 
 // config.NUM_TRACKS = 100;
 var sessions = new AllSessions(config.NUM_TRACKS);
+const slotTimeouts = new Map(); // key: session:track -> timeout id
+
+function getSlotTimeoutKey(sessionName, trackNumber) {
+    return `${sessionName}:${trackNumber}`;
+}
+
+function clearTrackSlotTimeout(sessionName, trackNumber) {
+    const key = getSlotTimeoutKey(sessionName, trackNumber);
+    const timeoutId = slotTimeouts.get(key);
+    if (timeoutId) {
+        clearTimeout(timeoutId);
+        slotTimeouts.delete(key);
+    }
+}
+
+function clearSessionSlotTimeouts(sessionName) {
+    for (const [key, timeoutId] of slotTimeouts.entries()) {
+        if (key.startsWith(`${sessionName}:`)) {
+            clearTimeout(timeoutId);
+            slotTimeouts.delete(key);
+        }
+    }
+}
+
+function emitDeviceAssignments(sessionName, currentSession) {
+    const seqID = currentSession.getSeqID();
+    if (seqID) {
+        io.to(seqID).emit('device-assignments-updated', {
+            assignments: currentSession.getDeviceAssignments()
+        });
+    }
+}
+
+function emitQueueUpdates(sessionName, currentSession) {
+    const staleSockets = [];
+    let queue = currentSession.getWaitingQueue();
+
+    queue.forEach((entry, index) => {
+        const waitingSocket = io.sockets.sockets.get(entry.socketID);
+        if (!waitingSocket || !waitingSocket.connected) {
+            staleSockets.push(entry.socketID);
+            return;
+        }
+
+        waitingSocket.emit('queue-status', {
+            position: index + 1,
+            total: queue.length,
+            message: `No devices available right now. You are #${index + 1} in the queue.`
+        });
+    });
+
+    if (staleSockets.length > 0) {
+        staleSockets.forEach(socketID => currentSession.removeWaitingUser(socketID));
+        queue = currentSession.getWaitingQueue();
+    }
+
+    const seqID = currentSession.getSeqID();
+    if (seqID) {
+        io.to(seqID).emit('queue-updated', {
+            length: queue.length,
+            activeSlots: currentSession.getActiveSlotCount(),
+            nextInitials: currentSession.getNextQueuedInitials()
+        });
+    }
+}
+
+function emitTrackAssignment(sessionName, currentSession, socketID, trackNumber) {
+    const assignment = currentSession.getDeviceForTrack(trackNumber);
+    if (!assignment) {
+        return false;
+    }
+
+    const configuredDevices = currentSession.getConfiguredDevices() || [];
+    const fullDevice = configuredDevices.find(d => d.id === assignment.deviceId) || null;
+    const slotInfo = currentSession.getTrackSlot(trackNumber);
+
+    io.to(socketID).emit('track-assignment', {
+        socketID: socketID,
+        device: fullDevice,
+        channel: (fullDevice && Number.isInteger(fullDevice.assignedChannel))
+            ? (fullDevice.assignedChannel - 1)
+            : 0,
+        trackId: trackNumber.toString(),
+        trackNumber: trackNumber + 1,
+        slotDurationSec: currentSession.getSlotDurationSec(),
+        slotExpiresAt: slotInfo ? slotInfo.expiresAt : null
+    });
+    return true;
+}
+
+function scheduleSlotExpiration(sessionName, currentSession, trackNumber, socketID, initials) {
+    const slotInfo = currentSession.getTrackSlot(trackNumber);
+    if (!slotInfo) {
+        return;
+    }
+
+    clearTrackSlotTimeout(sessionName, trackNumber);
+    const delayMs = Math.max(0, slotInfo.expiresAt - Date.now());
+    const timeoutId = setTimeout(() => {
+        const latestSession = sessions.select(sessionName);
+        if (!latestSession) {
+            return;
+        }
+
+        const latestSlot = latestSession.getTrackSlot(trackNumber);
+        if (!latestSlot || latestSlot.socketID !== socketID) {
+            return;
+        }
+
+        clearTrackSlotTimeout(sessionName, trackNumber);
+        latestSession.releaseParticipant(socketID);
+
+        io.to(sessionName).emit('track left', {
+            track: trackNumber,
+            initials: initials,
+            socketID: socketID
+        });
+
+        emitDeviceAssignments(sessionName, latestSession);
+
+        const timedOutSocket = io.sockets.sockets.get(socketID);
+        if (timedOutSocket && timedOutSocket.connected) {
+            timedOutSocket.emit('slot-expired', {
+                reason: 'Your time is up. You have been moved to the queue.'
+            });
+            latestSession.enqueueWaitingUser(socketID, initials);
+        }
+
+        emitQueueUpdates(sessionName, latestSession);
+        tryPromoteQueuedUsers(sessionName, latestSession, socketID);
+        logger.info(`#${sessionName} @[${initials}] slot expired on track ${trackNumber}`);
+    }, delayMs);
+
+    slotTimeouts.set(getSlotTimeoutKey(sessionName, trackNumber), timeoutId);
+}
+
+function tryAssignSocketToTrack(sessionName, currentSession, socket, initials) {
+    const safeInitials = (initials && `${initials}`.trim().length > 0) ? initials : 'GUEST';
+    const availableDevice = currentSession.getRandomUnassignedDevice();
+    if (!availableDevice) {
+        return { assigned: false, reason: 'no-device' };
+    }
+
+    const track = currentSession.allocateAvailableParticipant(socket.id, safeInitials);
+    if (track === -1) {
+        return { assigned: false, reason: 'no-track' };
+    }
+
+    currentSession.assignDeviceToTrack(track, availableDevice.id, availableDevice.name, safeInitials);
+    const expiresAt = Date.now() + (currentSession.getSlotDurationSec() * 1000);
+    currentSession.setTrackSlot(track, socket.id, expiresAt);
+    scheduleSlotExpiration(sessionName, currentSession, track, socket.id, safeInitials);
+
+    io.to(sessionName).emit('track joined', {
+        initials: safeInitials,
+        track: track,
+        socketID: socket.id
+    });
+
+    emitDeviceAssignments(sessionName, currentSession);
+    emitQueueUpdates(sessionName, currentSession);
+    emitTrackAssignment(sessionName, currentSession, socket.id, track);
+
+    const sessionStarted = currentSession.getAttribute("isPlaying");
+    if (sessionStarted) {
+        io.to(socket.id).emit('veil-off', { socketID: socket.id });
+    } else {
+        io.to(socket.id).emit('veil-on', { socketID: socket.id });
+    }
+
+    return { assigned: true, track };
+}
+
+function tryPromoteQueuedUsers(sessionName, currentSession, excludedSocketID = null) {
+    const deferredEntries = [];
+
+    while (currentSession.getWaitingQueueLength() > 0) {
+        if (currentSession.getAvailableParticipants().length === 0) {
+            break;
+        }
+        if (!currentSession.getRandomUnassignedDevice()) {
+            break;
+        }
+
+        const nextEntry = currentSession.dequeueWaitingUser();
+        if (!nextEntry) {
+            break;
+        }
+
+        if (excludedSocketID && nextEntry.socketID === excludedSocketID) {
+            deferredEntries.push(nextEntry);
+            continue;
+        }
+
+        const waitingSocket = io.sockets.sockets.get(nextEntry.socketID);
+        if (!waitingSocket || !waitingSocket.connected) {
+            continue;
+        }
+
+        const promoted = tryAssignSocketToTrack(
+            sessionName,
+            currentSession,
+            waitingSocket,
+            nextEntry.initials
+        );
+
+        if (!promoted.assigned) {
+            currentSession.prependWaitingUser(nextEntry);
+            break;
+        }
+    }
+
+    deferredEntries.forEach(entry => {
+        currentSession.enqueueWaitingUser(entry.socketID, entry.initials);
+    });
+
+    emitQueueUpdates(sessionName, currentSession);
+}
 
 app.get('/', (req, res) => {
     // req.query.seq
@@ -89,29 +307,40 @@ io.on('connection', (socket) => {
     
     if (connectionType === 'sequencer') {
         // Handle sequencer connection
-        const exists = sessions.select(session);
-        
-        if(exists >= 0) {
+        const sessionIndex = sessions.findSession(session);
+        const hasSession = sessionIndex >= 0;
+        const currentSession = hasSession ? sessions.select(session) : null;
+
+        if (hasSession && currentSession && currentSession.getSeqID()) {
             io.to(socket.id).emit('sequencer exists', {
                 reason: `Session '${session}' already has a sequencer. Choose a different name.`
             });
             logger.info(`#${session} @SEQUENCER exists already.`);
         } else {
-            // Create new session
-            sessions.addSession(session, config.NUM_TRACKS, config.NUM_STEPS, allocationMethod, config.MAX_NUM_ROUNDS);
-            sessions.select(session).setAttribute("isPlaying", false);
+            if (!hasSession) {
+                sessions.addSession(session, config.NUM_TRACKS, config.NUM_STEPS, allocationMethod, config.MAX_NUM_ROUNDS);
+                sessions.select(session).setAttribute("isPlaying", false);
+            }
+
             sessions.select(session).setSeqID(socket.id);
             
             logger.info(`#${session} @SEQUENCER joined session.`);
             
             // Handle sequencer disconnection
             socket.on('disconnect', () => {
-                logger.info(`#${session} @SEQUENCER disconnected. Clearing session.`);
-                socket.broadcast.to(session).emit('exit session', {
-                    reason: "Sequencer disconnected!"
-                });
-                sessions.select(session).clearSession();
+                logger.info(`#${session} @SEQUENCER disconnected. Session state preserved.`);
+                const activeSession = sessions.select(session);
+                if (activeSession) {
+                    activeSession.clearSeqID();
+                }
             });
+
+            io.to(socket.id).emit('slot-duration-updated', {
+                seconds: sessions.select(session).getSlotDurationSec()
+            });
+
+            emitDeviceAssignments(session, sessions.select(session));
+            emitQueueUpdates(session, sessions.select(session));
         }
     } else {
         // Handle track connection
@@ -124,72 +353,54 @@ io.on('connection', (socket) => {
             return;
         }
         
-        // Allocate track to participant
-        var track = currentSession.allocateAvailableParticipant(socket.id, initials);
-        
-        if (track === -1) {
-            io.to(socket.id).emit('exit session', {
-                reason: "Session is full. No available tracks."
+        const hasQueueBacklog = currentSession.getWaitingQueueLength() > 0;
+        const assignment = hasQueueBacklog
+            ? { assigned: false, reason: 'queue-backlog' }
+            : tryAssignSocketToTrack(session, currentSession, socket, initials);
+
+        if (assignment.assigned) {
+            logger.info(`#${session} @[${initials}] joined session on track ${assignment.track}`);
+        } else {
+            const position = currentSession.enqueueWaitingUser(socket.id, initials);
+            emitQueueUpdates(session, currentSession);
+            io.to(socket.id).emit('queue-status', {
+                position,
+                total: currentSession.getWaitingQueueLength(),
+                message: `No devices available right now. You are #${position} in the queue.`
             });
-            return;
-        }
-        
-        logger.info(`#${session} @[${initials}] joined session on track ${track}`);
-        
-        // Auto-assign a random unassigned device to this track
-        const device = currentSession.getRandomUnassignedDevice();
-        if (device) {
-            currentSession.assignDeviceToTrack(track, device.id, device.name, initials);
-        }
-        
-        // Notify sequencer about new track and updated device assignments
-        socket.broadcast.to(session).emit('track joined', { 
-            initials: initials, 
-            track: track, 
-            socketID: socket.id 
-        });
-        
-        // Broadcast updated device assignments to sequencer
-        const seqID = currentSession.getSeqID();
-        if (seqID) {
-            io.to(seqID).emit('device-assignments-updated', {
-                assignments: currentSession.getDeviceAssignments()
-            });
+
+            const sessionStarted = currentSession.getAttribute("isPlaying");
+            if (sessionStarted) {
+                io.to(socket.id).emit('veil-off', { socketID: socket.id });
+            } else {
+                io.to(socket.id).emit('veil-on', { socketID: socket.id });
+            }
+            logger.info(`#${session} @[${initials}] queued at position ${position}`);
         }
         
         // Handle track disconnection
         socket.on('disconnect', () => {
             const trackToDelete = currentSession.getParticipantNumber(socket.id);
-            currentSession.releaseParticipant(socket.id);
-            
-            // Clear device assignment for this track
-            currentSession.clearDeviceAssignment(trackToDelete);
-            
-            // Notify sequencer about track leaving
-            io.to(session).emit('track left', {
-                track: trackToDelete, 
-                initials: initials, 
-                socketID: socket.id
-            });
-            
-            // Broadcast updated device assignments to sequencer
-            const seqID = currentSession.getSeqID();
-            if (seqID) {
-                io.to(seqID).emit('device-assignments-updated', {
-                    assignments: currentSession.getDeviceAssignments()
+            if (trackToDelete >= 0) {
+                clearTrackSlotTimeout(session, trackToDelete);
+                currentSession.releaseParticipant(socket.id);
+
+                io.to(session).emit('track left', {
+                    track: trackToDelete,
+                    initials: initials,
+                    socketID: socket.id
                 });
+
+                emitDeviceAssignments(session, currentSession);
+                tryPromoteQueuedUsers(session, currentSession);
+                logger.info(`#${session} @[${initials}] (${socket.id}) disconnected, clearing track ${trackToDelete}`);
             }
-            
-            logger.info(`#${session} @[${initials}] (${socket.id}) disconnected, clearing track ${trackToDelete}`);
+
+            if (currentSession.removeWaitingUser(socket.id)) {
+                emitQueueUpdates(session, currentSession);
+                logger.info(`#${session} @[${initials}] (${socket.id}) left queue`);
+            }
         });
-        
-        // Send initial session state to track
-        const sessionStarted = currentSession.getAttribute("isPlaying");
-        if (sessionStarted) {
-            io.to(socket.id).emit('veil-off', { socketID: socket.id });
-        } else {
-            io.to(socket.id).emit('veil-on', { socketID: socket.id });
-        }
     }
     
     socket.on('step update', (msg) => { // Send step values
@@ -245,20 +456,19 @@ io.on('connection', (socket) => {
         const currentSession = sessions.select(session);
         if (currentSession) {
             const trackNumber = currentSession.getParticipantNumber(socket.id);
-            const assignment = currentSession.getDeviceForTrack(trackNumber);
+            const assignment = trackNumber >= 0 ? currentSession.getDeviceForTrack(trackNumber) : null;
 
             if (assignment) {
-                const configuredDevices = currentSession.getConfiguredDevices() || [];
-                const fullDevice = configuredDevices.find(d => d.id === assignment.deviceId) || null;
+                emitTrackAssignment(session, currentSession, msg.socketID, trackNumber);
+                return;
+            }
 
-                io.to(msg.socketID).emit('track-assignment', {
-                    socketID: msg.socketID,
-                    device: fullDevice,
-                    channel: (fullDevice && Number.isInteger(fullDevice.assignedChannel))
-                        ? (fullDevice.assignedChannel - 1)
-                        : 0,
-                    trackId: trackNumber.toString(),
-                    trackNumber: trackNumber + 1
+            if (currentSession.isUserQueued(socket.id)) {
+                const position = currentSession.getQueuePosition(socket.id);
+                io.to(msg.socketID).emit('queue-status', {
+                    position,
+                    total: currentSession.getWaitingQueueLength(),
+                    message: `No devices available right now. You are #${position} in the queue.`
                 });
                 return;
             }
@@ -268,8 +478,8 @@ io.on('connection', (socket) => {
                 socketID: msg.socketID,
                 device: null,
                 channel: 0,
-                trackId: trackNumber.toString(),
-                trackNumber: trackNumber + 1
+                trackId: trackNumber >= 0 ? trackNumber.toString() : '-1',
+                trackNumber: trackNumber >= 0 ? trackNumber + 1 : -1
             });
         } else {
             console.warn('No session found:', session);
@@ -279,6 +489,16 @@ io.on('connection', (socket) => {
     // Sequencer sends track assignment response - forward to specific track
     socket.on('track-assignment', (msg) => {
         console.log('Sequencer sending track assignment:', msg.socketID);
+        const currentSession = sessions.select(session);
+        if (currentSession && msg && msg.socketID) {
+            const trackNumber = currentSession.getParticipantNumber(msg.socketID);
+            if (trackNumber >= 0) {
+                const slotInfo = currentSession.getTrackSlot(trackNumber);
+                msg.slotDurationSec = currentSession.getSlotDurationSec();
+                msg.slotExpiresAt = slotInfo ? slotInfo.expiresAt : null;
+            }
+        }
+
         // Forward assignment response directly to the requesting track
         io.to(msg.socketID).emit('track-assignment', msg);
     });
@@ -289,14 +509,34 @@ io.on('connection', (socket) => {
         const currentSession = sessions.select(session);
         if (currentSession) {
             currentSession.setConfiguredDevices(msg.devices || []);
-
-            const seqID = currentSession.getSeqID();
-            if (seqID) {
-                io.to(seqID).emit('device-assignments-updated', {
-                    assignments: currentSession.getDeviceAssignments()
-                });
-            }
+            emitDeviceAssignments(session, currentSession);
+            tryPromoteQueuedUsers(session, currentSession);
         }
+    });
+
+    socket.on('set-slot-duration', (msg) => {
+        const currentSession = sessions.select(session);
+        if (!currentSession) return;
+        if (socket.id !== currentSession.getSeqID()) return;
+
+        currentSession.setSlotDurationSec(msg.seconds);
+
+        // Apply the new duration to currently active tracks as well.
+        for (let trackNumber = 0; trackNumber < config.NUM_TRACKS; trackNumber++) {
+            const slotInfo = currentSession.getTrackSlot(trackNumber);
+            if (!slotInfo) continue;
+
+            const participantInitials = currentSession.sequencer?.tracks?.[trackNumber]?.initials || 'UNKNOWN';
+            const newExpiresAt = Date.now() + (currentSession.getSlotDurationSec() * 1000);
+            currentSession.setTrackSlot(trackNumber, slotInfo.socketID, newExpiresAt);
+            scheduleSlotExpiration(session, currentSession, trackNumber, slotInfo.socketID, participantInitials);
+            emitTrackAssignment(session, currentSession, slotInfo.socketID, trackNumber);
+        }
+
+        io.to(currentSession.getSeqID()).emit('slot-duration-updated', {
+            seconds: currentSession.getSlotDurationSec()
+        });
+        logger.info(`#${session} slot duration updated to ${currentSession.getSlotDurationSec()}s`);
     });
     
     // Track sends MIDI message to be routed by sequencer

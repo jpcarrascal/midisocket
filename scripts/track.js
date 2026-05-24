@@ -6,6 +6,8 @@ var assignedDevice = null;
 var currentControllers = {};
 var socket;
 var mySocketID;
+var countdownInterval = null;
+var currentSlotExpiresAt = null;
 
 if(session === "undefined") session = null;
 if(initials === null || initials === "undefined" || initials === "") {
@@ -28,6 +30,8 @@ const trackInfoElement = document.getElementById("track-info");
 const controllerContainer = document.getElementById("controller-container");
 const connectionStatus = document.getElementById("connection-status");
 const midiActivity = document.getElementById("midi-activity");
+const queueMessageElement = document.getElementById("queue-message");
+const slotCountdownElement = document.getElementById("slot-countdown");
 
 if(!initials && session) { // No initials == no socket connection
     document.getElementById("initials-form").style.display = "block";
@@ -64,6 +68,7 @@ if(!initials && session) { // No initials == no socket connection
     socket.on("disconnect", () => {
         connectionStatus.textContent = "Disconnected";
         connectionStatus.style.color = "#ef4444";
+        stopSlotCountdown();
     });
 
     var body = document.querySelector("body");
@@ -78,12 +83,36 @@ if(!initials && session) { // No initials == no socket connection
             console.log("Device assignment matches my socketID:", msg);
             assignedDevice = msg.device;
             midiChannel = msg.channel;
+            clearQueueMessage();
             trackInfoElement.textContent = `Track ${msg.trackNumber}`;
             console.log("Updating device interface with:", msg.device);
             updateDeviceInterface(msg.device);
+
+            if (msg.slotExpiresAt) {
+                startSlotCountdown(msg.slotExpiresAt);
+            } else if (!msg.device) {
+                stopSlotCountdown();
+            }
         } else {
             console.log("Assignment not for me. My socketID:", mySocketID, "Message socketID:", msg.socketID);
         }
+    });
+
+    socket.on('queue-status', function(msg) {
+        stopSlotCountdown();
+        assignedDevice = null;
+        midiChannel = -1;
+        updateDeviceInterface(null);
+        setQueueMessage(msg.message || `No devices available right now. You are #${msg.position} in queue.`);
+        trackInfoElement.textContent = `Waiting in queue (#${msg.position}/${msg.total})`;
+    });
+
+    socket.on('slot-expired', function(msg) {
+        stopSlotCountdown();
+        assignedDevice = null;
+        midiChannel = -1;
+        updateDeviceInterface(null);
+        setQueueMessage(msg.reason || 'Your time is up. You were moved to queue.');
     });
 
     socket.on('stop', function(msg) {
@@ -126,6 +155,58 @@ if(!initials && session) { // No initials == no socket connection
 }
 
 /* ----------- Controller Interface Functions ------------ */
+
+function formatRemainingTime(msRemaining) {
+    const totalSeconds = Math.max(0, Math.ceil(msRemaining / 1000));
+    const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+    const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+    return `${minutes}:${seconds}`;
+}
+
+function startSlotCountdown(expiresAt) {
+    currentSlotExpiresAt = parseInt(expiresAt, 10);
+    if (!Number.isFinite(currentSlotExpiresAt)) {
+        stopSlotCountdown();
+        return;
+    }
+
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+    }
+
+    const update = () => {
+        const remaining = currentSlotExpiresAt - Date.now();
+        slotCountdownElement.textContent = `Remaining: ${formatRemainingTime(remaining)}`;
+        if (remaining <= 0) {
+            stopSlotCountdown();
+            slotCountdownElement.textContent = 'Remaining: 00:00';
+        }
+    };
+
+    update();
+    countdownInterval = setInterval(update, 250);
+}
+
+function stopSlotCountdown() {
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+    }
+    currentSlotExpiresAt = null;
+    slotCountdownElement.textContent = 'Remaining: --:--';
+}
+
+function setQueueMessage(message) {
+    if (!queueMessageElement) return;
+    queueMessageElement.textContent = message;
+    queueMessageElement.style.display = 'block';
+}
+
+function clearQueueMessage() {
+    if (!queueMessageElement) return;
+    queueMessageElement.textContent = '';
+    queueMessageElement.style.display = 'none';
+}
 
 function updateDeviceInterface(device) {
     if (!device) {
