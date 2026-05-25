@@ -25,6 +25,7 @@ body {
     align-items: center;
     justify-content: center;
     touch-action: manipulation;
+    padding-top:100px;
 }
 
 
