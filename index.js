@@ -273,6 +273,11 @@ app.get('/track', (req, res) => {
     res.sendFile(__dirname + page);
 });
 
+app.get('/ambsynth', (req, res) => {
+    var page = '/html/ambsynth.html';
+    res.sendFile(__dirname + page);
+});
+
 app.get('/favicon.ico', (req, res) => {
     res.status(204).end(); // No content for missing favicon
 });

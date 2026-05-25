@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AmbSynth Touchpad</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #1f2937;
+        position: fixed;
+        top: 0;
+        left: 0;
+      }
+
+      body {
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+
+      #touchpad {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        touch-action: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+      }
+
+      #status {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        z-index: 10;
+        min-width: 240px;
+        max-width: calc(100vw - 24px);
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: rgba(15, 23, 42, 0.78);
+        border: 1px solid rgba(103, 232, 249, 0.45);
+        color: #e5e7eb;
+        font: 12px/1.35 Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+        pointer-events: none;
+        white-space: pre-line;
+      }
+
+      #audio-unlock {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(2, 6, 23, 0.72);
+        touch-action: manipulation;
+      }
+
+      #audio-unlock.hidden {
+        display: none;
+      }
+
+      #audio-unlock button {
+        border: 1px solid rgba(103, 232, 249, 0.7);
+        background: rgba(15, 23, 42, 0.95);
+        color: #e5e7eb;
+        padding: 14px 18px;
+        border-radius: 12px;
+        font: 18px/1.35 Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+        touch-action: manipulation;
+        white-space: pre-line;
+        text-align: left;
+      }
+
+      #audio-unlock button[disabled] {
+        opacity: 0.7;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="touchpad"></canvas>
+    <div id="audio-unlock">
+      <button type="button" id="audio-unlock-button">1. Turn up the volume
+2. Turn off silent mode
+3. Tap here to enable audio</button>
+    </div>
+    <div id="status">initializing...</div>
+
+    <script>
+      // ============================================================================
+      // SYNTH CONFIGURATION - All parameters editable here
+      // ============================================================================
+      const CONFIG = {
+        // Envelope timing (ms)
+        envelope: {
+          attack: 500,     // ms to reach full volume from silence
+          release: 2000    // ms to decay from full volume to silence
+        },
+
+        // Filter frequency mapping
+        filter: {
+          minFreq: 30,    // Hz (bottom of screen)
+          maxFreq: 300,   // Hz (top of screen)
+          minQ: 0.7,
+          maxQ: 24,
+        },
+
+        // Axis mapping: change xAxisTarget to 'filterFrequency' to switch X back to frequency.
+        mapping: {
+          xAxisTarget: 'filterQ' // 'filterQ' | 'filterFrequency'
+        },
+
+        // LFO (modulation oscillator)
+        lfo: {
+          minFreq: 0,      // Hz (left of screen)
+          maxFreq: 4,     // Hz (right of screen)
+          minAmount: 0,    // % (left of screen)
+          maxAmount: 50,   // % (right of screen)
+          touchControlsEnabled: false,
+          staticFreq: 0,
+          staticAmount: 0
+        },
+
+        // White noise volume
+        noise: {
+          gain: 0.9        // 0-1, linear amplitude
+        },
+
+        // Output staging for audibility on mobile speakers
+        output: {
+          gain: 2.2,       // final output gain after filtering
+          limiterThreshold: -10,
+          limiterKnee: 20,
+          limiterRatio: 8,
+          limiterAttack: 0.003,
+          limiterRelease: 0.2
+        },
+
+        // UI toggles
+        ui: {
+          showHud: true
+        }
+      };
+
+      // ============================================================================
+      // Web Audio Setup
+      // ============================================================================
+      let audioContext = null;
+      let isPlaying = false;
+      let startTime = null;
+
+      // Audio nodes
+      let noiseSource = null;
+      let noiseGain = null;
+      let filter = null;
+      let lfoOscillator = null;
+      let lfoGain = null;
+      let masterGain = null;
+      let limiter = null;
+      let isMouseDown = false;
+      let lastFilterFreq = 0;
+      let lastFilterQ = 0;
+      let lastNormalizedX = 0;
+      let lastNormalizedY = 0;
+      let lastStatusNote = 'ready';
+      let resumeAttemptCount = 0;
+      let audioUnlocked = false;
+      let unlockError = 'none';
+      let unlockInProgress = false;
+      let lastUnlockTriggerAt = 0;
+      const unlockButtonDefaultLabel = '1. Turn up the volume\n2. Turn off silent mode\n3. Tap here to enable audio';
+      const statusEl = document.getElementById('status');
+      const audioUnlockEl = document.getElementById('audio-unlock');
+      const audioUnlockButton = document.getElementById('audio-unlock-button');
+
+      function updateAudioUnlockUI() {
+        if (!audioUnlockEl) {
+          return;
+        }
+
+        const shouldShow = !audioUnlocked;
+        audioUnlockEl.classList.toggle('hidden', !shouldShow);
+      }
+
+      function initAudioContext() {
+        if (audioContext) return;
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Output chain: master gain -> dynamics compressor -> speakers
+        masterGain = audioContext.createGain();
+
+        limiter = audioContext.createDynamicsCompressor();
+        limiter.threshold.value = CONFIG.output.limiterThreshold;
+        limiter.knee.value = CONFIG.output.limiterKnee;
+        limiter.ratio.value = CONFIG.output.limiterRatio;
+        limiter.attack.value = CONFIG.output.limiterAttack;
+        limiter.release.value = CONFIG.output.limiterRelease;
+
+        masterGain.connect(limiter);
+        limiter.connect(audioContext.destination);
+        masterGain.gain.value = CONFIG.output.gain;
+      }
+
+      async function ensureAudioRunning(source = 'gesture') {
+        if (!audioContext) {
+          unlockError = 'AudioContext not initialized; tap unlock button';
+          lastStatusNote = 'audio locked';
+          updateStatus();
+          return false;
+        }
+
+        if (audioContext.state === 'running') {
+          audioUnlocked = true;
+          updateAudioUnlockUI();
+          updateStatus();
+          return true;
+        }
+
+        resumeAttemptCount += 1;
+        try {
+          await audioContext.resume();
+
+          // iOS-safe warm-up pulse in the same user gesture chain.
+          const unlockOsc = audioContext.createOscillator();
+          const unlockGain = audioContext.createGain();
+          unlockGain.gain.setValueAtTime(0.00001, audioContext.currentTime);
+          unlockOsc.connect(unlockGain);
+          unlockGain.connect(audioContext.destination);
+          unlockOsc.start();
+          unlockOsc.stop(audioContext.currentTime + 0.01);
+
+          unlockError = 'none';
+          audioUnlocked = audioContext.state === 'running';
+          lastStatusNote = 'audio unlocked by ' + source;
+          updateAudioUnlockUI();
+          updateStatus();
+          return audioUnlocked;
+        } catch (error) {
+          unlockError = error && error.message ? error.message : 'unknown resume error';
+          audioUnlocked = false;
+          lastStatusNote = 'resume failed: ' + error.message;
+          updateAudioUnlockUI();
+          updateStatus();
+          return false;
+        }
+      }
+
+      async function unlockAudioFromButton(source) {
+        if (audioUnlocked || unlockInProgress) {
+          return;
+        }
+
+        unlockInProgress = true;
+        if (audioUnlockButton) {
+          audioUnlockButton.disabled = true;
+          audioUnlockButton.textContent = 'Enabling Audio...';
+        }
+
+        if (!audioContext) {
+          initAudioContext();
+        }
+
+        const running = await ensureAudioRunning(source);
+        if (!running) {
+          lastStatusNote = 'unlock failed; retry button';
+          if (audioUnlockButton) {
+            audioUnlockButton.disabled = false;
+            audioUnlockButton.textContent = unlockButtonDefaultLabel;
+          }
+          unlockInProgress = false;
+          updateStatus();
+          return;
+        }
+
+        if (audioUnlockButton) {
+          audioUnlockButton.disabled = false;
+          audioUnlockButton.textContent = unlockButtonDefaultLabel;
+        }
+        unlockInProgress = false;
+        lastStatusNote = 'audio ready';
+        updateAudioUnlockUI();
+        updateStatus();
+      }
+
+      function createWhiteNoiseSource() {
+        const bufferSize = audioContext.sampleRate * 2;
+        const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+        
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+        return source;
+      }
+
+      function startSynth() {
+        if (isPlaying) return;
+
+        isPlaying = true;
+        const now = audioContext.currentTime;
+        startTime = now;
+
+        // Create noise source
+        noiseSource = createWhiteNoiseSource();
+        noiseGain = audioContext.createGain();
+        noiseGain.gain.cancelScheduledValues(now);
+        noiseGain.gain.setValueAtTime(0, now);
+        noiseSource.connect(noiseGain);
+
+        // Create low-pass filter
+        filter = audioContext.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(120, now);
+        filter.Q.value = (CONFIG.filter.minQ + CONFIG.filter.maxQ) / 2;
+        noiseGain.connect(filter);
+
+        // Create LFO (sine oscillator for filter modulation)
+        lfoOscillator = audioContext.createOscillator();
+        lfoOscillator.type = 'sine';
+        lfoOscillator.frequency.setValueAtTime(5, now);
+        
+        lfoGain = audioContext.createGain();
+        lfoGain.gain.setValueAtTime(0, now);
+        lfoOscillator.connect(lfoGain);
+        lfoGain.connect(filter.frequency);
+
+        // Connect to master
+        filter.connect(masterGain);
+
+        // Start nodes
+        noiseSource.start();
+        lfoOscillator.start();
+
+        // Start attack envelope
+        const attackTime = CONFIG.envelope.attack / 1000;
+        noiseGain.gain.cancelScheduledValues(now);
+        noiseGain.gain.setValueAtTime(0, now);
+        noiseGain.gain.linearRampToValueAtTime(
+          CONFIG.noise.gain,
+          now + attackTime
+        );
+
+        lastStatusNote = 'synth started';
+        updateStatus();
+      }
+
+      function stopSynth() {
+        if (!isPlaying) return;
+        
+        isPlaying = false;
+        if (!noiseGain || !noiseSource || !lfoOscillator) {
+          return;
+        }
+
+        const localNoiseSource = noiseSource;
+        const localLfoOscillator = lfoOscillator;
+        const localNoiseGain = noiseGain;
+
+        // Release envelope
+        const releaseTime = CONFIG.envelope.release / 1000;
+        const now = audioContext.currentTime;
+        localNoiseGain.gain.cancelScheduledValues(now);
+        localNoiseGain.gain.setValueAtTime(localNoiseGain.gain.value, now);
+        localNoiseGain.gain.linearRampToValueAtTime(
+          0,
+          now + releaseTime
+        );
+
+        // Stop nodes after release completes
+        setTimeout(() => {
+          try {
+            localNoiseSource.stop();
+          } catch (error) {
+            // Node may already be stopped; ignore.
+          }
+          try {
+            localLfoOscillator.stop();
+          } catch (error) {
+            // Node may already be stopped; ignore.
+          }
+
+          if (noiseSource === localNoiseSource) {
+            noiseSource = null;
+          }
+          if (lfoOscillator === localLfoOscillator) {
+            lfoOscillator = null;
+          }
+          if (noiseGain === localNoiseGain) {
+            noiseGain = null;
+            filter = null;
+            lfoGain = null;
+          }
+
+          lastStatusNote = 'synth stopped';
+          updateStatus();
+        }, CONFIG.envelope.release);
+      }
+
+      function updateSynthParameters(normalizedX, normalizedY) {
+        if (!isPlaying || !filter || !lfoOscillator || !lfoGain) return;
+
+        const yFilterFreq = CONFIG.filter.maxFreq - (normalizedY * (CONFIG.filter.maxFreq - CONFIG.filter.minFreq));
+        const xFilterFreq = CONFIG.filter.minFreq + (normalizedX * (CONFIG.filter.maxFreq - CONFIG.filter.minFreq));
+        const xFilterQ = CONFIG.filter.minQ + (normalizedX * (CONFIG.filter.maxQ - CONFIG.filter.minQ));
+
+        // Y stays mapped to frequency unless X is explicitly set to frequency target.
+        const appliedFilterFreq = CONFIG.mapping.xAxisTarget === 'filterFrequency'
+          ? xFilterFreq
+          : yFilterFreq;
+        filter.frequency.setTargetAtTime(appliedFilterFreq, audioContext.currentTime, 0.01);
+
+        if (CONFIG.mapping.xAxisTarget === 'filterQ') {
+          filter.Q.setTargetAtTime(xFilterQ, audioContext.currentTime, 0.01);
+        }
+
+        // Optional touch->modulation mapping (disabled by default so X can target Q instead).
+        const lfoFreq = CONFIG.lfo.touchControlsEnabled
+          ? normalizedX * CONFIG.lfo.maxFreq
+          : CONFIG.lfo.staticFreq;
+        lfoOscillator.frequency.setTargetAtTime(lfoFreq, audioContext.currentTime, 0.01);
+
+        const lfoAmount = CONFIG.lfo.touchControlsEnabled
+          ? (normalizedX * (CONFIG.lfo.maxAmount - CONFIG.lfo.minAmount)) + CONFIG.lfo.minAmount
+          : CONFIG.lfo.staticAmount;
+        const lfoDepth = (lfoAmount / 100) * (CONFIG.filter.maxFreq - CONFIG.filter.minFreq);
+        lfoGain.gain.setTargetAtTime(lfoDepth, audioContext.currentTime, 0.01);
+      }
+
+      function updateStatus() {
+        if (statusEl) {
+          statusEl.style.display = CONFIG.ui.showHud ? 'block' : 'none';
+        }
+
+        if (!CONFIG.ui.showHud) {
+          return;
+        }
+
+        if (!statusEl) {
+          return;
+        }
+
+        const ctxState = audioContext ? audioContext.state : 'not-created';
+        const engineReady = (isPlaying && noiseSource && noiseGain && filter && lfoOscillator && lfoGain) ? 'yes' : 'no';
+        const lines = [
+          'status: ' + lastStatusNote,
+          'audioContext: ' + ctxState,
+          'resumeAttempts: ' + resumeAttemptCount,
+          'audioUnlocked: ' + (audioUnlocked ? 'yes' : 'no'),
+          'unlockInProgress: ' + (unlockInProgress ? 'yes' : 'no'),
+          'unlockError: ' + unlockError,
+          'isPlaying: ' + (isPlaying ? 'yes' : 'no'),
+          'engineReady: ' + engineReady,
+          'touching: ' + (isTouching ? 'yes' : 'no'),
+          'x: ' + Math.round(lastNormalizedX * 100) + '%',
+          'y: ' + Math.round(lastNormalizedY * 100) + '%',
+          'xTarget: ' + CONFIG.mapping.xAxisTarget,
+          'touchMod: ' + (CONFIG.lfo.touchControlsEnabled ? 'on' : 'off'),
+          'filterHz(y): ' + Math.round(lastFilterFreq),
+          'filterQ(x): ' + lastFilterQ.toFixed(2)
+        ];
+
+        statusEl.textContent = lines.join('\n');
+      }
+
+      // ============================================================================
+      // Canvas & Touch Handling
+      // ============================================================================
+      const canvas = document.getElementById('touchpad');
+      const ctx = canvas.getContext('2d');
+
+      let activeTouchId = null;
+      let activePointerId = null;
+      let activePoint = null;
+      let isTouching = false;
+      let persistentPoint = null;
+
+      const colors = {
+        background: '#1f2937',
+        line: '#67e8f9',
+        circleFill: '#67e8f9',
+        circleStroke: '#67e8f9'
+      };
+
+      function resizeCanvas() {
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.round(window.innerWidth * dpr);
+        canvas.height = Math.round(window.innerHeight * dpr);
+        canvas.style.width = '100vw';
+        canvas.style.height = '100vh';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        draw();
+      }
+
+      function getCanvasPoint(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: (clientX - rect.left),
+          y: (clientY - rect.top)
+        };
+      }
+
+      function draw() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        ctx.fillStyle = colors.background;
+        ctx.fillRect(0, 0, width, height);
+
+        if (persistentPoint) {
+          ctx.beginPath();
+          ctx.arc(persistentPoint.x, persistentPoint.y, 18, 0, Math.PI * 2);
+          ctx.fillStyle = colors.circleFill;
+          ctx.fill();
+          ctx.lineWidth = 3.5;
+          ctx.strokeStyle = colors.circleStroke;
+          ctx.stroke();
+        }
+
+        if (isTouching && activePoint) {
+          ctx.strokeStyle = colors.line;
+          ctx.lineWidth = 3.5;
+
+          ctx.beginPath();
+          ctx.moveTo(activePoint.x, 0);
+          ctx.lineTo(activePoint.x, height);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(0, activePoint.y);
+          ctx.lineTo(width, activePoint.y);
+          ctx.stroke();
+        }
+      }
+
+      function beginInteraction(clientX, clientY, source) {
+        activePoint = getCanvasPoint(clientX, clientY);
+        persistentPoint = { ...activePoint };
+        isTouching = true;
+        lastStatusNote = source + ' start';
+        updateStatus();
+
+        if (!audioUnlocked || !audioContext || audioContext.state !== 'running') {
+          lastStatusNote = 'audio still locked; use enable button';
+          updateStatus();
+          updateTouchParameters();
+          draw();
+          return;
+        }
+
+        if (!isTouching) {
+          return;
+        }
+
+        startSynth();
+        updateTouchParameters();
+        draw();
+      }
+
+      function moveInteraction(clientX, clientY, source) {
+        if (!isTouching) {
+          return;
+        }
+
+        activePoint = getCanvasPoint(clientX, clientY);
+        persistentPoint = { ...activePoint };
+        lastStatusNote = source + ' move';
+        updateTouchParameters();
+        draw();
+      }
+
+      function endInteraction(source) {
+        if (!isTouching) {
+          return;
+        }
+
+        activePoint = null;
+        isTouching = false;
+        stopSynth();
+        lastStatusNote = source + ' end';
+        updateStatus();
+        draw();
+      }
+
+      function onPointerDown(event) {
+        event.preventDefault();
+        if (activePointerId !== null || isTouching) {
+          return;
+        }
+
+        activePointerId = event.pointerId;
+        if (canvas.setPointerCapture) {
+          canvas.setPointerCapture(activePointerId);
+        }
+        beginInteraction(event.clientX, event.clientY, 'pointer');
+      }
+
+      function onPointerMove(event) {
+        if (activePointerId === null || event.pointerId !== activePointerId) {
+          return;
+        }
+
+        event.preventDefault();
+        moveInteraction(event.clientX, event.clientY, 'pointer');
+      }
+
+      function onPointerUp(event) {
+        if (activePointerId === null || event.pointerId !== activePointerId) {
+          return;
+        }
+
+        event.preventDefault();
+        if (canvas.releasePointerCapture) {
+          canvas.releasePointerCapture(activePointerId);
+        }
+        activePointerId = null;
+        endInteraction('pointer');
+      }
+
+      function onTouchStart(event) {
+        event.preventDefault();
+        if (activeTouchId !== null || isTouching) {
+          return;
+        }
+
+        const touch = event.changedTouches[0];
+        if (!touch) {
+          return;
+        }
+
+        activeTouchId = touch.identifier;
+        beginInteraction(touch.clientX, touch.clientY, 'touch');
+      }
+
+      function onTouchMove(event) {
+        event.preventDefault();
+        if (activeTouchId === null) {
+          return;
+        }
+
+        let touch = null;
+        for (const t of event.changedTouches) {
+          if (t.identifier === activeTouchId) {
+            touch = t;
+            break;
+          }
+        }
+
+        if (!touch) {
+          return;
+        }
+
+        moveInteraction(touch.clientX, touch.clientY, 'touch');
+      }
+
+      function onTouchEnd(event) {
+        event.preventDefault();
+        if (activeTouchId === null) {
+          return;
+        }
+
+        for (const t of event.changedTouches) {
+          if (t.identifier === activeTouchId) {
+            activeTouchId = null;
+            endInteraction('touch');
+            break;
+          }
+        }
+      }
+
+      function onMouseDown(event) {
+        event.preventDefault();
+        if (isMouseDown) {
+          return;
+        }
+
+        isMouseDown = true;
+        beginInteraction(event.clientX, event.clientY, 'mouse');
+      }
+
+      function onMouseMove(event) {
+        if (!isMouseDown) {
+          return;
+        }
+
+        moveInteraction(event.clientX, event.clientY, 'mouse');
+      }
+
+      function onMouseUp(event) {
+        if (!isMouseDown) {
+          return;
+        }
+
+        event.preventDefault();
+        isMouseDown = false;
+        endInteraction('mouse');
+      }
+
+      function updateTouchParameters() {
+        if (!persistentPoint) return;
+
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        const normalizedX = Math.max(0, Math.min(1, persistentPoint.x / width));
+        const normalizedY = Math.max(0, Math.min(1, persistentPoint.y / height));
+
+        // Keep HUD responsive even if synth nodes are not currently active.
+        const yFilterFreq = CONFIG.filter.maxFreq - (normalizedY * (CONFIG.filter.maxFreq - CONFIG.filter.minFreq));
+        const xFilterFreq = CONFIG.filter.minFreq + (normalizedX * (CONFIG.filter.maxFreq - CONFIG.filter.minFreq));
+        const xFilterQ = CONFIG.filter.minQ + (normalizedX * (CONFIG.filter.maxQ - CONFIG.filter.minQ));
+        const displayedFilterFreq = CONFIG.mapping.xAxisTarget === 'filterFrequency'
+          ? xFilterFreq
+          : yFilterFreq;
+
+        lastNormalizedX = normalizedX;
+        lastNormalizedY = normalizedY;
+        lastFilterFreq = displayedFilterFreq;
+        lastFilterQ = xFilterQ;
+        updateStatus();
+
+        updateSynthParameters(normalizedX, normalizedY);
+      }
+
+      canvas.addEventListener('pointerdown', onPointerDown, { passive: false });
+      canvas.addEventListener('pointermove', onPointerMove, { passive: false });
+      canvas.addEventListener('pointerup', onPointerUp, { passive: false });
+      canvas.addEventListener('pointercancel', onPointerUp, { passive: false });
+
+      canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+      canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+      canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+      canvas.addEventListener('touchcancel', onTouchEnd, { passive: false });
+      canvas.addEventListener('mousedown', onMouseDown);
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+
+      window.addEventListener('resize', resizeCanvas);
+
+      async function onUnlockGesture(event, source) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const now = performance.now();
+        if (now - lastUnlockTriggerAt < 300) {
+          return;
+        }
+        lastUnlockTriggerAt = now;
+
+        await unlockAudioFromButton(source);
+      }
+
+      audioUnlockButton.addEventListener('pointerup', async (event) => {
+        await onUnlockGesture(event, 'unlock-button-pointerup');
+      }, { passive: false });
+
+      audioUnlockButton.addEventListener('click', async (event) => {
+        await onUnlockGesture(event, 'unlock-button-click');
+      });
+
+      audioUnlockEl.addEventListener('pointerup', async (event) => {
+        await onUnlockGesture(event, 'unlock-overlay-pointerup');
+      }, { passive: false });
+
+      /*
+       * Keep click fallback for browsers that do not dispatch pointer events reliably.
+       */
+      audioUnlockEl.addEventListener('click', async (event) => {
+        await onUnlockGesture(event, 'unlock-overlay-click');
+      });
+
+      resizeCanvas();
+      updateAudioUnlockUI();
+      updateStatus();
+    </script>
+  </body>
+</html>
