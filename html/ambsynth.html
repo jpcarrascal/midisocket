@@ -103,6 +103,14 @@
           release: 2000    // ms to decay from full volume to silence
         },
 
+        // Touch duration split between long-press and short-tap behavior.
+        touch: {
+          thresholdMs: 180,
+          shortReleaseMs: 2000,
+          shortFrequencyMultiplier: 1.5,
+          shortQMultiplier: 2
+        },
+
         // Filter frequency mapping
         filter: {
           minFreq: 30,    // Hz (bottom of screen)
@@ -144,7 +152,7 @@
 
         // UI toggles
         ui: {
-          showHud: true
+          showHud: false
         }
       };
 
@@ -165,7 +173,9 @@
       let limiter = null;
       let isMouseDown = false;
       let lastFilterFreq = 0;
+      let lastAppliedFilterFreq = 0;
       let lastFilterQ = 0;
+      let lastAppliedFilterQ = 0;
       let lastNormalizedX = 0;
       let lastNormalizedY = 0;
       let lastStatusNote = 'ready';
@@ -178,6 +188,10 @@
       const statusEl = document.getElementById('status');
       const audioUnlockEl = document.getElementById('audio-unlock');
       const audioUnlockButton = document.getElementById('audio-unlock-button');
+      let touchStartAt = 0;
+      let touchThresholdTimer = null;
+      let touchVoiceStarted = false;
+      let touchVoiceMode = null;
 
       function updateAudioUnlockUI() {
         if (!audioUnlockEl) {
@@ -302,7 +316,7 @@
         return source;
       }
 
-      function startSynth() {
+      function startSynth(attackMs = CONFIG.envelope.attack) {
         if (isPlaying) return;
 
         isPlaying = true;
@@ -341,7 +355,7 @@
         lfoOscillator.start();
 
         // Start attack envelope
-        const attackTime = CONFIG.envelope.attack / 1000;
+        const attackTime = attackMs / 1000;
         noiseGain.gain.cancelScheduledValues(now);
         noiseGain.gain.setValueAtTime(0, now);
         noiseGain.gain.linearRampToValueAtTime(
@@ -353,7 +367,7 @@
         updateStatus();
       }
 
-      function stopSynth() {
+      function stopSynth(releaseMs = CONFIG.envelope.release) {
         if (!isPlaying) return;
         
         isPlaying = false;
@@ -366,7 +380,7 @@
         const localNoiseGain = noiseGain;
 
         // Release envelope
-        const releaseTime = CONFIG.envelope.release / 1000;
+        const releaseTime = releaseMs / 1000;
         const now = audioContext.currentTime;
         localNoiseGain.gain.cancelScheduledValues(now);
         localNoiseGain.gain.setValueAtTime(localNoiseGain.gain.value, now);
@@ -402,7 +416,27 @@
 
           lastStatusNote = 'synth stopped';
           updateStatus();
-        }, CONFIG.envelope.release);
+        }, releaseMs);
+      }
+
+      function clearTouchThresholdTimer() {
+        if (touchThresholdTimer) {
+          clearTimeout(touchThresholdTimer);
+          touchThresholdTimer = null;
+        }
+      }
+
+      function startLongTouchVoiceIfActive() {
+        if (!isTouching || touchVoiceStarted || !audioUnlocked || !audioContext || audioContext.state !== 'running') {
+          return;
+        }
+
+        touchVoiceStarted = true;
+        touchVoiceMode = 'long';
+        startSynth(CONFIG.envelope.attack);
+        updateTouchParameters();
+        lastStatusNote = 'long touch voice started';
+        updateStatus();
       }
 
       function updateSynthParameters(normalizedX, normalizedY) {
@@ -411,15 +445,17 @@
         const yFilterFreq = CONFIG.filter.maxFreq - (normalizedY * (CONFIG.filter.maxFreq - CONFIG.filter.minFreq));
         const xFilterFreq = CONFIG.filter.minFreq + (normalizedX * (CONFIG.filter.maxFreq - CONFIG.filter.minFreq));
         const xFilterQ = CONFIG.filter.minQ + (normalizedX * (CONFIG.filter.maxQ - CONFIG.filter.minQ));
+        const touchQMultiplier = touchVoiceMode === 'short' ? CONFIG.touch.shortQMultiplier : 1;
+        const touchFrequencyMultiplier = touchVoiceMode === 'short' ? CONFIG.touch.shortFrequencyMultiplier : 1;
 
         // Y stays mapped to frequency unless X is explicitly set to frequency target.
         const appliedFilterFreq = CONFIG.mapping.xAxisTarget === 'filterFrequency'
           ? xFilterFreq
           : yFilterFreq;
-        filter.frequency.setTargetAtTime(appliedFilterFreq, audioContext.currentTime, 0.01);
+        filter.frequency.setTargetAtTime(appliedFilterFreq * touchFrequencyMultiplier, audioContext.currentTime, 0.01);
 
         if (CONFIG.mapping.xAxisTarget === 'filterQ') {
-          filter.Q.setTargetAtTime(xFilterQ, audioContext.currentTime, 0.01);
+          filter.Q.setTargetAtTime(xFilterQ * touchQMultiplier, audioContext.currentTime, 0.01);
         }
 
         // Optional touch->modulation mapping (disabled by default so X can target Q instead).
@@ -460,12 +496,15 @@
           'isPlaying: ' + (isPlaying ? 'yes' : 'no'),
           'engineReady: ' + engineReady,
           'touching: ' + (isTouching ? 'yes' : 'no'),
+          'touchMode: ' + (touchVoiceMode || 'pending'),
           'x: ' + Math.round(lastNormalizedX * 100) + '%',
           'y: ' + Math.round(lastNormalizedY * 100) + '%',
           'xTarget: ' + CONFIG.mapping.xAxisTarget,
           'touchMod: ' + (CONFIG.lfo.touchControlsEnabled ? 'on' : 'off'),
           'filterHz(y): ' + Math.round(lastFilterFreq),
-          'filterQ(x): ' + lastFilterQ.toFixed(2)
+          'filterQ(x): ' + lastFilterQ.toFixed(2),
+          'shortFreqMul: ' + CONFIG.touch.shortFrequencyMultiplier,
+          'shortQMul: ' + CONFIG.touch.shortQMultiplier
         ];
 
         statusEl.textContent = lines.join('\n');
@@ -492,8 +531,9 @@
 
       function resizeCanvas() {
         const dpr = window.devicePixelRatio || 1;
-        canvas.width = Math.round(window.innerWidth * dpr);
-        canvas.height = Math.round(window.innerHeight * dpr);
+        const bounds = canvas.getBoundingClientRect();
+        canvas.width = Math.round(bounds.width * dpr);
+        canvas.height = Math.round(bounds.height * dpr);
         canvas.style.width = '100vw';
         canvas.style.height = '100vh';
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -509,8 +549,9 @@
       }
 
       function draw() {
-        const width = window.innerWidth;
-        const height = window.innerHeight;
+        const bounds = canvas.getBoundingClientRect();
+        const width = bounds.width;
+        const height = bounds.height;
 
         ctx.fillStyle = colors.background;
         ctx.fillRect(0, 0, width, height);
@@ -545,6 +586,9 @@
         activePoint = getCanvasPoint(clientX, clientY);
         persistentPoint = { ...activePoint };
         isTouching = true;
+        touchStartAt = performance.now();
+        touchVoiceStarted = false;
+        touchVoiceMode = null;
         lastStatusNote = source + ' start';
         updateStatus();
 
@@ -556,11 +600,9 @@
           return;
         }
 
-        if (!isTouching) {
-          return;
-        }
+        clearTouchThresholdTimer();
+        touchThresholdTimer = setTimeout(startLongTouchVoiceIfActive, CONFIG.touch.thresholdMs);
 
-        startSynth();
         updateTouchParameters();
         draw();
       }
@@ -582,9 +624,26 @@
           return;
         }
 
+        const touchDurationMs = performance.now() - touchStartAt;
+        const wasShortTouch = touchDurationMs < CONFIG.touch.thresholdMs;
+
+        clearTouchThresholdTimer();
         activePoint = null;
         isTouching = false;
-        stopSynth();
+
+        if (wasShortTouch) {
+          touchVoiceMode = 'short';
+          if (!touchVoiceStarted) {
+            startSynth(0);
+            touchVoiceStarted = true;
+          }
+          updateTouchParameters();
+          stopSynth(CONFIG.touch.shortReleaseMs);
+        } else {
+          touchVoiceMode = 'long';
+          stopSynth(CONFIG.envelope.release);
+        }
+
         lastStatusNote = source + ' end';
         updateStatus();
         draw();
@@ -707,8 +766,9 @@
       function updateTouchParameters() {
         if (!persistentPoint) return;
 
-        const width = window.innerWidth;
-        const height = window.innerHeight;
+        const bounds = canvas.getBoundingClientRect();
+        const width = bounds.width;
+        const height = bounds.height;
 
         const normalizedX = Math.max(0, Math.min(1, persistentPoint.x / width));
         const normalizedY = Math.max(0, Math.min(1, persistentPoint.y / height));
@@ -718,7 +778,7 @@
         const xFilterFreq = CONFIG.filter.minFreq + (normalizedX * (CONFIG.filter.maxFreq - CONFIG.filter.minFreq));
         const xFilterQ = CONFIG.filter.minQ + (normalizedX * (CONFIG.filter.maxQ - CONFIG.filter.minQ));
         const displayedFilterFreq = CONFIG.mapping.xAxisTarget === 'filterFrequency'
-          ? xFilterFreq
+          ? (touchVoiceMode === 'short' ? xFilterFreq * CONFIG.touch.shortFrequencyMultiplier : xFilterFreq)
           : yFilterFreq;
 
         lastNormalizedX = normalizedX;
