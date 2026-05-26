@@ -33,6 +33,61 @@ const connectionStatus = document.getElementById("connection-status");
 const midiActivity = document.getElementById("midi-activity");
 const queueMessageElement = document.getElementById("queue-message");
 const slotCountdownElement = document.getElementById("slot-countdown");
+let waitingSynthInstance = null;
+
+function ensureWaitingSynthRoot() {
+    let root = document.getElementById('waiting-synth-root');
+    if (!root) {
+        root = document.createElement('div');
+        root.id = 'waiting-synth-root';
+        root.className = 'waiting-synth-root';
+        controllerContainer.appendChild(root);
+    }
+    return root;
+}
+
+function clearDynamicControllerContent() {
+    if (!controllerContainer) return;
+    Array.from(controllerContainer.children).forEach((child) => {
+        if (child.id !== 'waiting-synth-root') {
+            child.remove();
+        }
+    });
+}
+
+function showWaitingSynth() {
+    if (!controllerContainer) return;
+
+    clearDynamicControllerContent();
+    const waitingSynthRoot = ensureWaitingSynthRoot();
+    waitingSynthRoot.style.display = 'block';
+
+    if (!waitingSynthInstance && window.AmbSynthEmbed) {
+        waitingSynthInstance = window.AmbSynthEmbed.mount(waitingSynthRoot, {
+            showHud: false,
+            minHeight: '100%',
+            borderRadius: '8px'
+        });
+    }
+
+    if (waitingSynthInstance && typeof waitingSynthInstance.show === 'function') {
+        waitingSynthInstance.show();
+    } else {
+        waitingSynthRoot.style.display = 'block';
+    }
+}
+
+function hideWaitingSynth() {
+    const waitingSynthRoot = document.getElementById('waiting-synth-root');
+
+    if (waitingSynthInstance && typeof waitingSynthInstance.hide === 'function') {
+        waitingSynthInstance.hide();
+    }
+
+    if (waitingSynthRoot) {
+        waitingSynthRoot.style.display = 'none';
+    }
+}
 
 function setDeviceInfoVisible(visible) {
     if (!deviceInfoElement) return;
@@ -85,6 +140,7 @@ if(!initials && session) { // No initials == no socket connection
         stopSlotCountdown();
         setCountdownVisible(false);
         setDeviceInfoVisible(false);
+        hideWaitingSynth();
     });
 
     var body = document.querySelector("body");
@@ -100,6 +156,11 @@ if(!initials && session) { // No initials == no socket connection
             assignedDevice = msg.device;
             midiChannel = msg.channel;
             clearQueueMessage();
+            if (msg.device) {
+                hideWaitingSynth();
+            } else {
+                showWaitingSynth();
+            }
             setDeviceInfoVisible(Boolean(msg.device));
             trackInfoElement.textContent = `Track ${msg.trackNumber}`;
             console.log("Updating device interface with:", msg.device);
@@ -124,8 +185,9 @@ if(!initials && session) { // No initials == no socket connection
         assignedDevice = null;
         midiChannel = -1;
         updateDeviceInterface(null);
-        setQueueMessage(`No pedals available right now. You are #${msg.position}/${msg.total} in line.`);
+        setQueueMessage(`No pedals available right now. You are ${msg.position}/${msg.total} in line. Play with this synth in the meantime:`);
         trackInfoElement.textContent = 'Track Controller';
+        showWaitingSynth();
     });
 
     socket.on('slot-expired', function(msg) {
@@ -136,6 +198,7 @@ if(!initials && session) { // No initials == no socket connection
         midiChannel = -1;
         updateDeviceInterface(null);
         setQueueMessage(msg.reason || 'Your time is up. You were moved to line.');
+        showWaitingSynth();
     });
 
     socket.on('stop', function(msg) {
@@ -234,7 +297,7 @@ function clearQueueMessage() {
 function updateDeviceInterface(device) {
     if (!device) {
         deviceNameElement.textContent = "No Pedal Assigned";
-        controllerContainer.innerHTML = '';
+        clearDynamicControllerContent();
         // Reset to default background
         document.body.style.backgroundColor = '#1a1a1a';
         document.body.style.color = '#ffffff';
@@ -255,7 +318,7 @@ function updateDeviceInterface(device) {
     }
     
     // Clear existing controllers
-    controllerContainer.innerHTML = '';
+    clearDynamicControllerContent();
     currentControllers = {};
 
 
