@@ -22,10 +22,11 @@ body {
     font-weight: bold;
     display:flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    align-items: stretch;
+    justify-content: flex-start;
     touch-action: manipulation;
-    padding-top:100px;
+    margin: 0;
+    min-height: 100vh;
 }
 
 
@@ -70,6 +71,17 @@ body {
     display: none;
 }
 
+#controller {
+    width: 100vw;
+    height: 100vh;
+    box-sizing: border-box;
+    padding: 0;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+}
+
 #rotate-me {
   text-align: center;
 }
@@ -84,25 +96,27 @@ body {
     padding: 0.2em;
     background: linear-gradient(135deg, #888888 0%, #666666 100%);
     margin-bottom: 0.1em;
+    margin-top: 0;
     border-radius: 4px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 #device-name {
     margin: 0;
-    font-size: 1em;
+    font-size: 1.5em;
+    font-weight: bold;  
     color: white;
 }
 
 #track-info {
     margin: 0.1em 0 0 0;
-    font-size: 0.7em;
+    font-size: 1.5em;
     color: rgba(255, 255, 255, 0.8);
 }
 
 #slot-countdown {
     margin: 0.15em 0 0 0;
-    font-size: 0.7em;
+    font-size: 1.5em;
     color: rgba(255, 255, 255, 0.95);
     letter-spacing: 0.02em;
 }
@@ -115,7 +129,7 @@ body {
     background: rgba(0, 0, 0, 0.45);
     color: #ffffff;
     text-align: center;
-    font-size: 0.8em;
+    font-size: 1.5em;
     line-height: 1.35;
 }
 
@@ -123,7 +137,8 @@ body {
 #controller-container {
     display: none;
     padding: 0.1em; /* Minimal padding */
-    height: calc(100vh - 120px); /* Leave space for header and status bar */
+    flex: 1 1 auto;
+    min-height: 0;
     overflow: visible; /* Don't clip content */
 }
 
@@ -151,7 +166,8 @@ body {
         display: flex;
         flex-direction: column;
         gap: 0.1em;
-        padding: 0.1em; /* Minimal padding for maximum width */
+        padding: 0.35em;
+        box-sizing: border-box;
     }
     
     .slider-container {
@@ -162,12 +178,13 @@ body {
         padding: 5px; /* Minimal padding for maximum slider width */
         border-radius: 4px;
         flex: 1; /* Make each slider container take equal space */
-        width: calc(100vw - 20px); /* MAXIMUM screen width */
+        width: 100%;
+        box-sizing: border-box;
     }
     
     .slider-label {
         color: white;
-        font-size: 0.8em;
+        font-size: 1em;
         margin-bottom: 0.4em;
         display: flex;
         justify-content: space-between;
@@ -183,9 +200,10 @@ body {
     }
     
     input[type="range"], .slider {
-        width: calc(100% - 10px); /* MAXIMUM width to screen edges */
+        width: 100%;
         height: 40px; /* Thicker for better touch */
-        margin: 0 5px; /* Minimal margin to edges */
+        margin: 0;
+        box-sizing: border-box;
     }
     
     /* Discrete controller styles - match slider styling */
@@ -197,12 +215,13 @@ body {
         padding: 5px;
         border-radius: 4px;
         flex: 1;
-        width: calc(100vw - 20px);
+        width: 100%;
+        box-sizing: border-box;
     }
     
     .discrete-label {
         color: white;
-        font-size: 0.8em;
+        font-size: 1em;
         margin-bottom: 0.4em;
         display: flex;
         justify-content: space-between;
@@ -221,7 +240,7 @@ body {
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
-        margin: 0 5px;
+        margin: 0;
     }
     
     .discrete-option-btn {
@@ -262,7 +281,8 @@ body {
         overflow-x: auto !important;
         overflow-y: hidden !important;
         width: 100% !important;
-        height: calc(100vh - 120px) !important; /* More space for header and status bar */
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
         flex-wrap: nowrap !important;
     }
     
@@ -461,8 +481,9 @@ body {
     padding: 0.5em 1em;
     background: rgba(45, 55, 72, 0.7);
     border-radius: 5px;
-    margin-top: 1em;
+    margin-top: 0;
     font-size: 0.8em;
+    flex-shrink: 0;
 }
 
 #connection-status {

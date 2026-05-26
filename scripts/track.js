@@ -27,11 +27,25 @@ var maxRetries = 3;
 // DOM Elements
 const deviceNameElement = document.getElementById("device-name");
 const trackInfoElement = document.getElementById("track-info");
+const deviceInfoElement = document.getElementById("device-info");
 const controllerContainer = document.getElementById("controller-container");
 const connectionStatus = document.getElementById("connection-status");
 const midiActivity = document.getElementById("midi-activity");
 const queueMessageElement = document.getElementById("queue-message");
 const slotCountdownElement = document.getElementById("slot-countdown");
+
+function setDeviceInfoVisible(visible) {
+    if (!deviceInfoElement) return;
+    deviceInfoElement.style.display = visible ? 'block' : 'none';
+}
+
+function setCountdownVisible(visible) {
+    if (!slotCountdownElement) return;
+    slotCountdownElement.style.display = visible ? 'block' : 'none';
+}
+
+setDeviceInfoVisible(true);
+setCountdownVisible(false);
 
 if(!initials && session) { // No initials == no socket connection
     document.getElementById("initials-form").style.display = "block";
@@ -48,7 +62,7 @@ if(!initials && session) { // No initials == no socket connection
 } else if(initials && session) {
     setCookie("countmein-initials",initials,1000);
     /* ----------- Socket set up: ------------ */
-    document.getElementById("controller").style.display = "block";
+    document.getElementById("controller").style.display = "flex";
     controllerContainer.style.display = "flex"; // Show controller container
     socket = io("", {query:{initials: initials, session: session}});
     
@@ -69,6 +83,8 @@ if(!initials && session) { // No initials == no socket connection
         connectionStatus.textContent = "Disconnected";
         connectionStatus.style.color = "#ef4444";
         stopSlotCountdown();
+        setCountdownVisible(false);
+        setDeviceInfoVisible(false);
     });
 
     var body = document.querySelector("body");
@@ -84,14 +100,17 @@ if(!initials && session) { // No initials == no socket connection
             assignedDevice = msg.device;
             midiChannel = msg.channel;
             clearQueueMessage();
+            setDeviceInfoVisible(Boolean(msg.device));
             trackInfoElement.textContent = `Track ${msg.trackNumber}`;
             console.log("Updating device interface with:", msg.device);
             updateDeviceInterface(msg.device);
 
             if (msg.slotExpiresAt) {
+                setCountdownVisible(true);
                 startSlotCountdown(msg.slotExpiresAt);
-            } else if (!msg.device) {
+            } else {
                 stopSlotCountdown();
+                setCountdownVisible(false);
             }
         } else {
             console.log("Assignment not for me. My socketID:", mySocketID, "Message socketID:", msg.socketID);
@@ -100,19 +119,23 @@ if(!initials && session) { // No initials == no socket connection
 
     socket.on('queue-status', function(msg) {
         stopSlotCountdown();
+        setCountdownVisible(false);
+        setDeviceInfoVisible(false);
         assignedDevice = null;
         midiChannel = -1;
         updateDeviceInterface(null);
-        setQueueMessage(msg.message || `No devices available right now. You are #${msg.position} in queue.`);
-        trackInfoElement.textContent = `Waiting in queue (#${msg.position}/${msg.total})`;
+        setQueueMessage(`No pedals available right now. You are #${msg.position}/${msg.total} in line.`);
+        trackInfoElement.textContent = 'Track Controller';
     });
 
     socket.on('slot-expired', function(msg) {
         stopSlotCountdown();
+        setCountdownVisible(false);
+        setDeviceInfoVisible(false);
         assignedDevice = null;
         midiChannel = -1;
         updateDeviceInterface(null);
-        setQueueMessage(msg.reason || 'Your time is up. You were moved to queue.');
+        setQueueMessage(msg.reason || 'Your time is up. You were moved to line.');
     });
 
     socket.on('stop', function(msg) {
@@ -210,7 +233,7 @@ function clearQueueMessage() {
 
 function updateDeviceInterface(device) {
     if (!device) {
-        deviceNameElement.textContent = "No Device Assigned";
+        deviceNameElement.textContent = "No Pedal Assigned";
         controllerContainer.innerHTML = '';
         // Reset to default background
         document.body.style.backgroundColor = '#1a1a1a';

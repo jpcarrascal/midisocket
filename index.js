@@ -77,7 +77,7 @@ function emitQueueUpdates(sessionName, currentSession) {
         waitingSocket.emit('queue-status', {
             position: index + 1,
             total: queue.length,
-            message: `No devices available right now. You are #${index + 1} in the queue.`
+            message: `No pedals available right now. You are #${index + 1} in line.`
         });
     });
 
@@ -153,7 +153,7 @@ function scheduleSlotExpiration(sessionName, currentSession, trackNumber, socket
         const timedOutSocket = io.sockets.sockets.get(socketID);
         if (timedOutSocket && timedOutSocket.connected) {
             timedOutSocket.emit('slot-expired', {
-                reason: 'Your time is up. You have been moved to the queue.'
+                reason: 'Your time is up. You have been moved to line.'
             });
             latestSession.enqueueWaitingUser(socketID, initials);
         }
@@ -371,7 +371,7 @@ io.on('connection', (socket) => {
             io.to(socket.id).emit('queue-status', {
                 position,
                 total: currentSession.getWaitingQueueLength(),
-                message: `No devices available right now. You are #${position} in the queue.`
+                message: `No pedals available right now. You are #${position} in line.`
             });
 
             const sessionStarted = currentSession.getAttribute("isPlaying");
@@ -473,7 +473,7 @@ io.on('connection', (socket) => {
                 io.to(msg.socketID).emit('queue-status', {
                     position,
                     total: currentSession.getWaitingQueueLength(),
-                    message: `No devices available right now. You are #${position} in the queue.`
+                    message: `No pedals available right now. You are #${position} in line.`
                 });
                 return;
             }
