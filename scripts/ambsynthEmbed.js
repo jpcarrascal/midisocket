@@ -2,7 +2,7 @@
   const DEFAULT_OPTIONS = {
     className: 'ambsynth-inline-root',
     minHeight: '100%',
-    background: '#1f2937',
+    background: '#2f3947',
     borderRadius: '8px',
     showHud: false,
     style: null
@@ -462,7 +462,7 @@
     }
 
     const colors = {
-      background: '#1f2937',
+      background: '#2f3947',
       line: '#67e8f9',
       circleFill: '#67e8f9',
       circleStroke: '#67e8f9'

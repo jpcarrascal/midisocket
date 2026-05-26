@@ -141,10 +141,57 @@ if(!initials && session) { // No initials == no socket connection
         setCountdownVisible(false);
         setDeviceInfoVisible(false);
         hideWaitingSynth();
+        disableNoSleep();
     });
 
     var body = document.querySelector("body");
-    var noSleep = new NoSleep();
+    var noSleep = (typeof NoSleep !== 'undefined') ? new NoSleep() : null;
+    var noSleepEnabled = false;
+
+    function enableNoSleep() {
+        if (!noSleep || noSleepEnabled) {
+            return;
+        }
+
+        Promise.resolve(noSleep.enable())
+            .then(function() {
+                noSleepEnabled = true;
+                console.log('NoSleep enabled');
+            })
+            .catch(function(error) {
+                console.warn('NoSleep enable failed:', error);
+            });
+    }
+
+    function disableNoSleep() {
+        if (!noSleep || !noSleepEnabled) {
+            return;
+        }
+
+        try {
+            noSleep.disable();
+            noSleepEnabled = false;
+            console.log('NoSleep disabled');
+        } catch (error) {
+            console.warn('NoSleep disable failed:', error);
+        }
+    }
+
+    function handleNoSleepGesture() {
+        enableNoSleep();
+    }
+
+    document.addEventListener('touchstart', handleNoSleepGesture, { once: true, passive: true });
+    document.addEventListener('pointerdown', handleNoSleepGesture, { once: true, passive: true });
+    document.addEventListener('click', handleNoSleepGesture, { once: true, passive: true });
+
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'hidden') {
+            disableNoSleep();
+        }
+    });
+
+    window.addEventListener('beforeunload', disableNoSleep);
 
     /* ----------- Socket messages ------------ */
 
