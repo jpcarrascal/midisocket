@@ -8,7 +8,7 @@
     style: null
   };
 
-  const CONFIG = {
+  const BASE_CONFIG = {
     envelope: { attack: 500, release: 2000 },
     touch: {
       thresholdMs: 180,
@@ -18,7 +18,15 @@
     },
     filter: { minFreq: 30, maxFreq: 300, minQ: 0.7, maxQ: 24 },
     mapping: { xAxisTarget: 'filterQ' },
-    lfo: { touchControlsEnabled: false, staticFreq: 0, staticAmount: 0 },
+    lfo: {
+      minFreq: 0,
+      maxFreq: 4,
+      minAmount: 0,
+      maxAmount: 50,
+      touchControlsEnabled: false,
+      staticFreq: 0,
+      staticAmount: 0
+    },
     noise: { gain: 0.9 },
     output: {
       gain: 2.2,
@@ -27,7 +35,8 @@
       limiterRatio: 8,
       limiterAttack: 0.003,
       limiterRelease: 0.2
-    }
+    },
+    ui: { showHud: false }
   };
 
   function isElement(value) {
@@ -54,9 +63,23 @@
     throw new Error('AmbSynthEmbed: container must be a DOM element or selector');
   }
 
+  function cloneConfig(showHud) {
+    return {
+      envelope: { ...BASE_CONFIG.envelope },
+      touch: { ...BASE_CONFIG.touch },
+      filter: { ...BASE_CONFIG.filter },
+      mapping: { ...BASE_CONFIG.mapping },
+      lfo: { ...BASE_CONFIG.lfo },
+      noise: { ...BASE_CONFIG.noise },
+      output: { ...BASE_CONFIG.output },
+      ui: { showHud: !!showHud }
+    };
+  }
+
   function mount(container, options = {}) {
     const target = resolveContainer(container);
     const config = { ...DEFAULT_OPTIONS, ...options };
+    const CONFIG = cloneConfig(config.showHud);
 
     const root = document.createElement('div');
     root.className = config.className;
@@ -68,7 +91,6 @@
     root.style.background = config.background;
     root.style.borderRadius = config.borderRadius;
     root.style.touchAction = 'none';
-
     if (config.style && typeof config.style === 'object') {
       Object.assign(root.style, config.style);
     }
@@ -78,104 +100,104 @@
     canvas.style.width = '100%';
     canvas.style.height = '100%';
     canvas.style.touchAction = 'none';
-    canvas.style.cursor = 'crosshair';
 
-    const status = document.createElement('div');
-    status.style.position = 'absolute';
-    status.style.left = '10px';
-    status.style.top = '10px';
-    status.style.zIndex = '2';
-    status.style.minWidth = '200px';
-    status.style.maxWidth = 'calc(100% - 20px)';
-    status.style.padding = '8px 10px';
-    status.style.borderRadius = '8px';
-    status.style.background = 'rgba(15, 23, 42, 0.78)';
-    status.style.border = '1px solid rgba(103, 232, 249, 0.45)';
-    status.style.color = '#e5e7eb';
-    status.style.font = "11px/1.35 Menlo, Monaco, Consolas, 'Liberation Mono', monospace";
-    status.style.pointerEvents = 'none';
-    status.style.whiteSpace = 'pre-line';
-    status.textContent = 'initializing...';
-    if (!config.showHud) {
-      status.style.display = 'none';
-    }
+    const statusEl = document.createElement('div');
+    statusEl.style.position = 'absolute';
+    statusEl.style.top = '12px';
+    statusEl.style.left = '12px';
+    statusEl.style.zIndex = '2';
+    statusEl.style.minWidth = '240px';
+    statusEl.style.maxWidth = 'calc(100% - 24px)';
+    statusEl.style.padding = '10px 12px';
+    statusEl.style.borderRadius = '10px';
+    statusEl.style.background = 'rgba(15, 23, 42, 0.78)';
+    statusEl.style.border = '1px solid rgba(103, 232, 249, 0.45)';
+    statusEl.style.color = '#e5e7eb';
+    statusEl.style.font = "12px/1.35 Menlo, Monaco, Consolas, 'Liberation Mono', monospace";
+    statusEl.style.pointerEvents = 'none';
+    statusEl.style.whiteSpace = 'pre-line';
+    statusEl.textContent = 'initializing...';
 
-    const unlock = document.createElement('div');
-    unlock.style.position = 'absolute';
-    unlock.style.inset = '0';
-    unlock.style.zIndex = '3';
-    unlock.style.display = 'flex';
-    unlock.style.alignItems = 'center';
-    unlock.style.justifyContent = 'center';
-    unlock.style.background = 'rgba(2, 6, 23, 0.72)';
+    const audioUnlockEl = document.createElement('div');
+    audioUnlockEl.style.position = 'absolute';
+    audioUnlockEl.style.inset = '0';
+    audioUnlockEl.style.zIndex = '3';
+    audioUnlockEl.style.display = 'flex';
+    audioUnlockEl.style.alignItems = 'center';
+    audioUnlockEl.style.justifyContent = 'center';
+    audioUnlockEl.style.background = 'rgba(2, 6, 23, 0.72)';
+    audioUnlockEl.style.touchAction = 'manipulation';
 
-    const unlockButton = document.createElement('button');
-    unlockButton.type = 'button';
-    unlockButton.style.border = '1px solid rgba(103, 232, 249, 0.7)';
-    unlockButton.style.background = 'rgba(15, 23, 42, 0.95)';
-    unlockButton.style.color = '#e5e7eb';
-    unlockButton.style.padding = '14px 18px';
-    unlockButton.style.borderRadius = '12px';
-    unlockButton.style.font = "16px/1.35 Menlo, Monaco, Consolas, 'Liberation Mono', monospace";
-    unlockButton.style.whiteSpace = 'pre-line';
-    unlockButton.style.textAlign = 'left';
-    unlockButton.style.touchAction = 'manipulation';
-    unlockButton.textContent = '1. Turn up the volume\n2. Turn off silent mode\n3. Tap here to enable audio';
+    const audioUnlockButton = document.createElement('button');
+    audioUnlockButton.type = 'button';
+    audioUnlockButton.style.border = '1px solid rgba(103, 232, 249, 0.7)';
+    audioUnlockButton.style.background = 'rgba(15, 23, 42, 0.95)';
+    audioUnlockButton.style.color = '#e5e7eb';
+    audioUnlockButton.style.padding = '14px 18px';
+    audioUnlockButton.style.borderRadius = '12px';
+    audioUnlockButton.style.font = "16px/1.35 Menlo, Monaco, Consolas, 'Liberation Mono', monospace";
+    audioUnlockButton.style.touchAction = 'manipulation';
+    audioUnlockButton.style.whiteSpace = 'pre-line';
+    audioUnlockButton.style.textAlign = 'left';
+    audioUnlockButton.textContent = '1. Turn up the volume\n2. Turn off silent mode\n3. Tap here to enable audio';
 
-    unlock.appendChild(unlockButton);
+    audioUnlockEl.appendChild(audioUnlockButton);
     root.appendChild(canvas);
-    root.appendChild(status);
-    root.appendChild(unlock);
+    root.appendChild(audioUnlockEl);
+    root.appendChild(statusEl);
     target.appendChild(root);
 
+    const ctx = canvas.getContext('2d');
+
     let audioContext = null;
-    let masterGain = null;
-    let limiter = null;
-    let filter = null;
-    let noiseGain = null;
+    let isPlaying = false;
+    let startTime = null;
     let noiseSource = null;
+    let noiseGain = null;
+    let filter = null;
     let lfoOscillator = null;
     let lfoGain = null;
-    let isPlaying = false;
-    let isPointerDown = false;
-    let unlocked = false;
+    let masterGain = null;
+    let limiter = null;
+
+    let isMouseDown = false;
+    let activeTouchId = null;
+    let activePointerId = null;
+    let activePoint = null;
+    let persistentPoint = null;
+    let isTouching = false;
+
+    let lastFilterFreq = 0;
+    let lastFilterQ = 0;
+    let lastNormalizedX = 0;
+    let lastNormalizedY = 0;
+    let lastStatusNote = 'ready';
+    let resumeAttemptCount = 0;
+    let audioUnlocked = false;
+    let unlockError = 'none';
     let unlockInProgress = false;
-    let lastUnlockAt = 0;
+    let lastUnlockTriggerAt = 0;
     let touchStartAt = 0;
-    let touchMode = null;
-    let touchVoiceStarted = false;
     let touchThresholdTimer = null;
-    let lastX = 0.5;
-    let lastY = 0.5;
-    let lastFreq = 0;
-    let lastQ = 0;
+    let touchVoiceStarted = false;
+    let touchVoiceMode = null;
+    const unlockButtonDefaultLabel = '1. Turn up the volume\n2. Turn off silent mode\n3. Tap here to enable audio';
     let frameId = null;
     let resizeObserver = null;
 
-    function createNoiseBuffer(context) {
-      const bufferSize = context.sampleRate * 2;
-      const buffer = context.createBuffer(1, bufferSize, context.sampleRate);
-      const channel = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i += 1) {
-        channel[i] = (Math.random() * 2 - 1) * 0.7;
-      }
-      return buffer;
+    function updateAudioUnlockUI() {
+      audioUnlockEl.style.display = audioUnlocked ? 'none' : 'flex';
     }
 
     function initAudioContext() {
-      if (audioContext) {
-        return;
-      }
-
+      if (audioContext) return;
       const AudioContextCtor = global.AudioContext || global.webkitAudioContext;
       if (!AudioContextCtor) {
         throw new Error('Web Audio API is not supported in this browser');
       }
 
       audioContext = new AudioContextCtor();
-
       masterGain = audioContext.createGain();
-      masterGain.gain.value = 0.0001;
 
       limiter = audioContext.createDynamicsCompressor();
       limiter.threshold.value = CONFIG.output.limiterThreshold;
@@ -184,315 +206,570 @@
       limiter.attack.value = CONFIG.output.limiterAttack;
       limiter.release.value = CONFIG.output.limiterRelease;
 
-      filter = audioContext.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = CONFIG.filter.minFreq;
-      filter.Q.value = CONFIG.filter.minQ;
-
-      noiseGain = audioContext.createGain();
-      noiseGain.gain.value = CONFIG.noise.gain;
-
-      lfoOscillator = audioContext.createOscillator();
-      lfoOscillator.type = 'sine';
-      lfoOscillator.frequency.value = CONFIG.lfo.staticFreq;
-      lfoGain = audioContext.createGain();
-      lfoGain.gain.value = CONFIG.lfo.staticAmount;
-      lfoOscillator.connect(lfoGain);
-      lfoGain.connect(filter.frequency);
-      lfoOscillator.start();
-
-      noiseSource = audioContext.createBufferSource();
-      noiseSource.buffer = createNoiseBuffer(audioContext);
-      noiseSource.loop = true;
-
-      noiseSource.connect(noiseGain);
-      noiseGain.connect(filter);
-      filter.connect(masterGain);
       masterGain.connect(limiter);
       limiter.connect(audioContext.destination);
-
-      noiseSource.start();
+      masterGain.gain.value = CONFIG.output.gain;
     }
 
-    async function ensureAudioRunning() {
+    async function ensureAudioRunning(source = 'gesture') {
+      if (!audioContext) {
+        unlockError = 'AudioContext not initialized; tap unlock button';
+        lastStatusNote = 'audio locked';
+        updateStatus();
+        return false;
+      }
+
+      if (audioContext.state === 'running') {
+        audioUnlocked = true;
+        updateAudioUnlockUI();
+        updateStatus();
+        return true;
+      }
+
+      resumeAttemptCount += 1;
+      try {
+        await audioContext.resume();
+
+        const unlockOsc = audioContext.createOscillator();
+        const unlockGain = audioContext.createGain();
+        unlockGain.gain.setValueAtTime(0.00001, audioContext.currentTime);
+        unlockOsc.connect(unlockGain);
+        unlockGain.connect(audioContext.destination);
+        unlockOsc.start();
+        unlockOsc.stop(audioContext.currentTime + 0.01);
+
+        unlockError = 'none';
+        audioUnlocked = audioContext.state === 'running';
+        lastStatusNote = 'audio unlocked by ' + source;
+        updateAudioUnlockUI();
+        updateStatus();
+        return audioUnlocked;
+      } catch (error) {
+        unlockError = error && error.message ? error.message : 'unknown resume error';
+        audioUnlocked = false;
+        lastStatusNote = 'resume failed: ' + unlockError;
+        updateAudioUnlockUI();
+        updateStatus();
+        return false;
+      }
+    }
+
+    async function unlockAudioFromButton(source) {
+      if (audioUnlocked || unlockInProgress) {
+        return;
+      }
+
+      unlockInProgress = true;
+      audioUnlockButton.disabled = true;
+      audioUnlockButton.textContent = 'Enabling Audio...';
+
       if (!audioContext) {
         initAudioContext();
       }
 
-      if (audioContext.state === 'running') {
-        return true;
-      }
-
-      await audioContext.resume();
-
-      if (audioContext.state !== 'running') {
-        return false;
-      }
-
-      // Tiny warm-up pulse to satisfy mobile gesture path.
-      const warm = audioContext.createOscillator();
-      const warmGain = audioContext.createGain();
-      warm.frequency.value = 220;
-      warmGain.gain.value = 0.00001;
-      warm.connect(warmGain);
-      warmGain.connect(audioContext.destination);
-      warm.start();
-      warm.stop(audioContext.currentTime + 0.02);
-      return true;
-    }
-
-    function setUnlockVisible(visible) {
-      unlock.style.display = visible ? 'flex' : 'none';
-    }
-
-    function norm(v) {
-      return Math.min(1, Math.max(0, v));
-    }
-
-    function lerp(a, b, t) {
-      return a + (b - a) * t;
-    }
-
-    function updateStatus(note) {
-      if (!config.showHud) {
+      const running = await ensureAudioRunning(source);
+      if (!running) {
+        lastStatusNote = 'unlock failed; retry button';
+        audioUnlockButton.disabled = false;
+        audioUnlockButton.textContent = unlockButtonDefaultLabel;
+        unlockInProgress = false;
+        updateStatus();
         return;
       }
 
-      const state = audioContext ? audioContext.state : 'none';
-      status.textContent = [
-        'ambsynth wait mode',
-        'audio: ' + state + (unlocked ? ' (unlocked)' : ' (locked)'),
-        'freq: ' + Math.round(lastFreq) + ' Hz',
-        'q: ' + lastQ.toFixed(2),
-        note ? 'note: ' + note : ''
-      ].filter(Boolean).join('\n');
+      audioUnlockButton.disabled = false;
+      audioUnlockButton.textContent = unlockButtonDefaultLabel;
+      unlockInProgress = false;
+      lastStatusNote = 'audio ready';
+      updateAudioUnlockUI();
+      updateStatus();
     }
 
-    function resizeCanvas() {
-      const rect = root.getBoundingClientRect();
-      const dpr = global.devicePixelRatio || 1;
-      const width = Math.max(1, Math.round(rect.width));
-      const height = Math.max(1, Math.round(rect.height));
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
-      const ctx = canvas.getContext('2d');
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-
-    function updateSynthParameters(nx, ny) {
-      if (!filter || !audioContext) {
-        return;
+    function createWhiteNoiseSource() {
+      const bufferSize = audioContext.sampleRate * 2;
+      const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
       }
 
-      const qMultiplier = touchMode === 'short' ? CONFIG.touch.shortQMultiplier : 1;
-      const freqMultiplier = touchMode === 'short' ? CONFIG.touch.shortFrequencyMultiplier : 1;
-
-      const qValue = lerp(CONFIG.filter.minQ, CONFIG.filter.maxQ, nx) * qMultiplier;
-      const freqValue = lerp(CONFIG.filter.minFreq, CONFIG.filter.maxFreq, 1 - ny) * freqMultiplier;
-      const now = audioContext.currentTime;
-
-      filter.Q.cancelScheduledValues(now);
-      filter.Q.linearRampToValueAtTime(qValue, now + 0.03);
-      filter.frequency.cancelScheduledValues(now);
-      filter.frequency.linearRampToValueAtTime(freqValue, now + 0.03);
-
-      lastFreq = freqValue;
-      lastQ = qValue;
-      updateStatus(isPlaying ? 'touch active' : 'ready');
+      const source = audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      return source;
     }
 
-    function draw() {
-      const rect = root.getBoundingClientRect();
-      const width = Math.max(1, rect.width);
-      const height = Math.max(1, rect.height);
-      const ctx = canvas.getContext('2d');
+    function startSynth(attackMs = CONFIG.envelope.attack) {
+      if (isPlaying) return;
 
-      ctx.clearRect(0, 0, width, height);
-
-      const gradient = ctx.createLinearGradient(0, 0, width, height);
-      gradient.addColorStop(0, '#1f2937');
-      gradient.addColorStop(1, '#0b1220');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, width, height);
-
-      const x = lastX * width;
-      const y = lastY * height;
-
-      ctx.beginPath();
-      ctx.arc(x, y, isPointerDown ? 26 : 18, 0, Math.PI * 2);
-      ctx.fillStyle = isPointerDown ? 'rgba(103, 232, 249, 0.55)' : 'rgba(103, 232, 249, 0.25)';
-      ctx.fill();
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = 'rgba(103, 232, 249, 0.9)';
-      ctx.stroke();
-
-      frameId = global.requestAnimationFrame(draw);
-    }
-
-    function startSynth(attackMs) {
-      if (!audioContext || !masterGain) {
-        return;
-      }
-
-      const now = audioContext.currentTime;
-      const target = CONFIG.output.gain;
-      masterGain.gain.cancelScheduledValues(now);
-      masterGain.gain.setValueAtTime(masterGain.gain.value, now);
-      masterGain.gain.linearRampToValueAtTime(target, now + attackMs / 1000);
       isPlaying = true;
-      updateStatus('synth on');
+      const now = audioContext.currentTime;
+      startTime = now;
+
+      noiseSource = createWhiteNoiseSource();
+      noiseGain = audioContext.createGain();
+      noiseGain.gain.cancelScheduledValues(now);
+      noiseGain.gain.setValueAtTime(0, now);
+      noiseSource.connect(noiseGain);
+
+      filter = audioContext.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(120, now);
+      filter.Q.value = (CONFIG.filter.minQ + CONFIG.filter.maxQ) / 2;
+      noiseGain.connect(filter);
+
+      lfoOscillator = audioContext.createOscillator();
+      lfoOscillator.type = 'sine';
+      lfoOscillator.frequency.setValueAtTime(5, now);
+
+      lfoGain = audioContext.createGain();
+      lfoGain.gain.setValueAtTime(0, now);
+      lfoOscillator.connect(lfoGain);
+      lfoGain.connect(filter.frequency);
+
+      filter.connect(masterGain);
+
+      noiseSource.start();
+      lfoOscillator.start();
+
+      const attackTime = attackMs / 1000;
+      noiseGain.gain.cancelScheduledValues(now);
+      noiseGain.gain.setValueAtTime(0, now);
+      noiseGain.gain.linearRampToValueAtTime(CONFIG.noise.gain, now + attackTime);
+
+      lastStatusNote = 'synth started';
+      updateStatus();
     }
 
-    function stopSynth(releaseMs) {
-      if (!audioContext || !masterGain) {
+    function stopSynth(releaseMs = CONFIG.envelope.release) {
+      if (!isPlaying) return;
+
+      isPlaying = false;
+      if (!noiseGain || !noiseSource || !lfoOscillator) {
         return;
       }
 
+      const localNoiseSource = noiseSource;
+      const localLfoOscillator = lfoOscillator;
+      const localNoiseGain = noiseGain;
       const now = audioContext.currentTime;
-      masterGain.gain.cancelScheduledValues(now);
-      masterGain.gain.setValueAtTime(masterGain.gain.value, now);
-      masterGain.gain.linearRampToValueAtTime(0.0001, now + releaseMs / 1000);
-      isPlaying = false;
-      updateStatus('synth off');
+      const releaseTime = releaseMs / 1000;
+
+      localNoiseGain.gain.cancelScheduledValues(now);
+      localNoiseGain.gain.setValueAtTime(localNoiseGain.gain.value, now);
+      localNoiseGain.gain.linearRampToValueAtTime(0, now + releaseTime);
+
+      global.setTimeout(() => {
+        try {
+          localNoiseSource.stop();
+        } catch (_e) {}
+        try {
+          localLfoOscillator.stop();
+        } catch (_e) {}
+
+        if (noiseSource === localNoiseSource) {
+          noiseSource = null;
+        }
+        if (lfoOscillator === localLfoOscillator) {
+          lfoOscillator = null;
+        }
+        if (noiseGain === localNoiseGain) {
+          noiseGain = null;
+          filter = null;
+          lfoGain = null;
+        }
+
+        lastStatusNote = 'synth stopped';
+        updateStatus();
+      }, releaseMs);
     }
 
-    function clearTouchThreshold() {
+    function clearTouchThresholdTimer() {
       if (touchThresholdTimer) {
         global.clearTimeout(touchThresholdTimer);
         touchThresholdTimer = null;
       }
     }
 
-    function beginInteraction() {
-      touchStartAt = Date.now();
-      touchMode = null;
-      touchVoiceStarted = false;
+    function startLongTouchVoiceIfActive() {
+      if (!isTouching || touchVoiceStarted || !audioUnlocked || !audioContext || audioContext.state !== 'running') {
+        return;
+      }
 
-      clearTouchThreshold();
-      touchThresholdTimer = global.setTimeout(() => {
-        touchMode = 'long';
-        touchVoiceStarted = true;
-        startSynth(CONFIG.envelope.attack);
-        updateSynthParameters(lastX, lastY);
-      }, CONFIG.touch.thresholdMs);
+      touchVoiceStarted = true;
+      touchVoiceMode = 'long';
+      startSynth(CONFIG.envelope.attack);
+      updateTouchParameters();
+      lastStatusNote = 'long touch voice started';
+      updateStatus();
     }
 
-    function endInteraction() {
-      const duration = Date.now() - touchStartAt;
-      clearTouchThreshold();
+    function updateSynthParameters(normalizedX, normalizedY) {
+      if (!isPlaying || !filter || !lfoOscillator || !lfoGain) return;
 
-      if (duration < CONFIG.touch.thresholdMs) {
-        touchMode = 'short';
-        updateSynthParameters(lastX, lastY);
-        startSynth(0);
+      const yFilterFreq = CONFIG.filter.maxFreq - (normalizedY * (CONFIG.filter.maxFreq - CONFIG.filter.minFreq));
+      const xFilterFreq = CONFIG.filter.minFreq + (normalizedX * (CONFIG.filter.maxFreq - CONFIG.filter.minFreq));
+      const xFilterQ = CONFIG.filter.minQ + (normalizedX * (CONFIG.filter.maxQ - CONFIG.filter.minQ));
+      const touchQMultiplier = touchVoiceMode === 'short' ? CONFIG.touch.shortQMultiplier : 1;
+      const touchFrequencyMultiplier = touchVoiceMode === 'short' ? CONFIG.touch.shortFrequencyMultiplier : 1;
+
+      const appliedFilterFreq = CONFIG.mapping.xAxisTarget === 'filterFrequency' ? xFilterFreq : yFilterFreq;
+      filter.frequency.setTargetAtTime(appliedFilterFreq * touchFrequencyMultiplier, audioContext.currentTime, 0.01);
+
+      if (CONFIG.mapping.xAxisTarget === 'filterQ') {
+        filter.Q.setTargetAtTime(xFilterQ * touchQMultiplier, audioContext.currentTime, 0.01);
+      }
+
+      const lfoFreq = CONFIG.lfo.touchControlsEnabled ? normalizedX * CONFIG.lfo.maxFreq : CONFIG.lfo.staticFreq;
+      lfoOscillator.frequency.setTargetAtTime(lfoFreq, audioContext.currentTime, 0.01);
+
+      const lfoAmount = CONFIG.lfo.touchControlsEnabled
+        ? (normalizedX * (CONFIG.lfo.maxAmount - CONFIG.lfo.minAmount)) + CONFIG.lfo.minAmount
+        : CONFIG.lfo.staticAmount;
+      const lfoDepth = (lfoAmount / 100) * (CONFIG.filter.maxFreq - CONFIG.filter.minFreq);
+      lfoGain.gain.setTargetAtTime(lfoDepth, audioContext.currentTime, 0.01);
+    }
+
+    function updateStatus() {
+      statusEl.style.display = CONFIG.ui.showHud ? 'block' : 'none';
+      if (!CONFIG.ui.showHud) {
+        return;
+      }
+
+      const ctxState = audioContext ? audioContext.state : 'not-created';
+      const engineReady = (isPlaying && noiseSource && noiseGain && filter && lfoOscillator && lfoGain) ? 'yes' : 'no';
+      const lines = [
+        'status: ' + lastStatusNote,
+        'audioContext: ' + ctxState,
+        'resumeAttempts: ' + resumeAttemptCount,
+        'audioUnlocked: ' + (audioUnlocked ? 'yes' : 'no'),
+        'unlockInProgress: ' + (unlockInProgress ? 'yes' : 'no'),
+        'unlockError: ' + unlockError,
+        'isPlaying: ' + (isPlaying ? 'yes' : 'no'),
+        'engineReady: ' + engineReady,
+        'touching: ' + (isTouching ? 'yes' : 'no'),
+        'touchMode: ' + (touchVoiceMode || 'pending'),
+        'x: ' + Math.round(lastNormalizedX * 100) + '%',
+        'y: ' + Math.round(lastNormalizedY * 100) + '%',
+        'xTarget: ' + CONFIG.mapping.xAxisTarget,
+        'touchMod: ' + (CONFIG.lfo.touchControlsEnabled ? 'on' : 'off'),
+        'filterHz(y): ' + Math.round(lastFilterFreq),
+        'filterQ(x): ' + lastFilterQ.toFixed(2),
+        'shortFreqMul: ' + CONFIG.touch.shortFrequencyMultiplier,
+        'shortQMul: ' + CONFIG.touch.shortQMultiplier
+      ];
+      statusEl.textContent = lines.join('\n');
+    }
+
+    const colors = {
+      background: '#1f2937',
+      line: '#67e8f9',
+      circleFill: '#67e8f9',
+      circleStroke: '#67e8f9'
+    };
+
+    function resizeCanvas() {
+      const dpr = global.devicePixelRatio || 1;
+      const bounds = canvas.getBoundingClientRect();
+      canvas.width = Math.round(bounds.width * dpr);
+      canvas.height = Math.round(bounds.height * dpr);
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      draw();
+    }
+
+    function getCanvasPoint(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top
+      };
+    }
+
+    function draw() {
+      const bounds = canvas.getBoundingClientRect();
+      const width = bounds.width;
+      const height = bounds.height;
+
+      ctx.fillStyle = colors.background;
+      ctx.fillRect(0, 0, width, height);
+
+      if (persistentPoint) {
+        ctx.beginPath();
+        ctx.arc(persistentPoint.x, persistentPoint.y, 18, 0, Math.PI * 2);
+        ctx.fillStyle = colors.circleFill;
+        ctx.fill();
+        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = colors.circleStroke;
+        ctx.stroke();
+      }
+
+      if (isTouching && activePoint) {
+        ctx.strokeStyle = colors.line;
+        ctx.lineWidth = 3.5;
+
+        ctx.beginPath();
+        ctx.moveTo(activePoint.x, 0);
+        ctx.lineTo(activePoint.x, height);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(0, activePoint.y);
+        ctx.lineTo(width, activePoint.y);
+        ctx.stroke();
+      }
+    }
+
+    function beginInteraction(clientX, clientY, source) {
+      activePoint = getCanvasPoint(clientX, clientY);
+      persistentPoint = { ...activePoint };
+      isTouching = true;
+      touchStartAt = global.performance.now();
+      touchVoiceStarted = false;
+      touchVoiceMode = null;
+      lastStatusNote = source + ' start';
+      updateStatus();
+
+      if (!audioUnlocked || !audioContext || audioContext.state !== 'running') {
+        lastStatusNote = 'audio still locked; use enable button';
+        updateStatus();
+        updateTouchParameters();
+        draw();
+        return;
+      }
+
+      clearTouchThresholdTimer();
+      touchThresholdTimer = global.setTimeout(startLongTouchVoiceIfActive, CONFIG.touch.thresholdMs);
+
+      updateTouchParameters();
+      draw();
+    }
+
+    function moveInteraction(clientX, clientY, source) {
+      if (!isTouching) {
+        return;
+      }
+
+      activePoint = getCanvasPoint(clientX, clientY);
+      persistentPoint = { ...activePoint };
+      lastStatusNote = source + ' move';
+      updateTouchParameters();
+      draw();
+    }
+
+    function endInteraction(source) {
+      if (!isTouching) {
+        return;
+      }
+
+      const touchDurationMs = global.performance.now() - touchStartAt;
+      const wasShortTouch = touchDurationMs < CONFIG.touch.thresholdMs;
+
+      clearTouchThresholdTimer();
+      activePoint = null;
+      isTouching = false;
+
+      if (wasShortTouch) {
+        touchVoiceMode = 'short';
+        if (!touchVoiceStarted) {
+          startSynth(0);
+          touchVoiceStarted = true;
+        }
+        updateTouchParameters();
         stopSynth(CONFIG.touch.shortReleaseMs);
-      } else if (touchVoiceStarted) {
+      } else {
+        touchVoiceMode = 'long';
         stopSynth(CONFIG.envelope.release);
       }
 
-      touchVoiceStarted = false;
-      global.setTimeout(() => {
-        touchMode = null;
-      }, 0);
+      lastStatusNote = source + ' end';
+      updateStatus();
+      draw();
     }
 
-    async function unlockAudioFromButton() {
-      const now = Date.now();
-      if (unlockInProgress || now - lastUnlockAt < 300) {
+    function onPointerDown(event) {
+      event.preventDefault();
+      if (activePointerId !== null || isTouching) {
         return;
       }
 
-      unlockInProgress = true;
-      lastUnlockAt = now;
-      unlockButton.disabled = true;
-      unlockButton.textContent = 'Enabling audio...';
-
-      try {
-        const ok = await ensureAudioRunning();
-        unlocked = ok;
-      } catch (error) {
-        console.error('AmbSynth unlock failed:', error);
-        unlocked = false;
+      activePointerId = event.pointerId;
+      if (canvas.setPointerCapture) {
+        canvas.setPointerCapture(activePointerId);
       }
-
-      setUnlockVisible(!unlocked);
-
-      if (!unlocked) {
-        unlockButton.disabled = false;
-        unlockButton.textContent = 'Audio still locked. Tap to retry';
-      }
-
-      unlockInProgress = false;
-      updateStatus(unlocked ? 'audio unlocked' : 'audio still locked');
+      beginInteraction(event.clientX, event.clientY, 'pointer');
     }
 
-    function updateFromPointer(clientX, clientY) {
-      const rect = canvas.getBoundingClientRect();
-      if (!rect.width || !rect.height) {
+    function onPointerMove(event) {
+      if (activePointerId === null || event.pointerId !== activePointerId) {
         return;
       }
 
-      const nx = norm((clientX - rect.left) / rect.width);
-      const ny = norm((clientY - rect.top) / rect.height);
-      lastX = nx;
-      lastY = ny;
-      updateSynthParameters(nx, ny);
+      event.preventDefault();
+      moveInteraction(event.clientX, event.clientY, 'pointer');
     }
 
-    function onPointerDown(e) {
-      if (!unlocked) {
+    function onPointerUp(event) {
+      if (activePointerId === null || event.pointerId !== activePointerId) {
         return;
       }
-      isPointerDown = true;
-      beginInteraction();
-      updateFromPointer(e.clientX, e.clientY);
-      canvas.setPointerCapture(e.pointerId);
+
+      event.preventDefault();
+      if (canvas.releasePointerCapture) {
+        canvas.releasePointerCapture(activePointerId);
+      }
+      activePointerId = null;
+      endInteraction('pointer');
     }
 
-    function onPointerMove(e) {
-      if (!isPointerDown || !unlocked) {
+    function onTouchStart(event) {
+      event.preventDefault();
+      if (activeTouchId !== null || isTouching) {
         return;
       }
-      updateFromPointer(e.clientX, e.clientY);
-    }
 
-    function onPointerUp(e) {
-      if (!isPointerDown) {
+      const touch = event.changedTouches[0];
+      if (!touch) {
         return;
       }
-      isPointerDown = false;
-      endInteraction();
-      if (canvas.hasPointerCapture(e.pointerId)) {
-        canvas.releasePointerCapture(e.pointerId);
-      }
+
+      activeTouchId = touch.identifier;
+      beginInteraction(touch.clientX, touch.clientY, 'touch');
     }
 
-    function onPointerCancel(e) {
-      if (!isPointerDown) {
+    function onTouchMove(event) {
+      event.preventDefault();
+      if (activeTouchId === null) {
         return;
       }
-      isPointerDown = false;
-      clearTouchThreshold();
-      stopSynth(CONFIG.envelope.release);
-      if (canvas.hasPointerCapture(e.pointerId)) {
-        canvas.releasePointerCapture(e.pointerId);
+
+      let touch = null;
+      for (const t of event.changedTouches) {
+        if (t.identifier === activeTouchId) {
+          touch = t;
+          break;
+        }
+      }
+
+      if (!touch) {
+        return;
+      }
+
+      moveInteraction(touch.clientX, touch.clientY, 'touch');
+    }
+
+    function onTouchEnd(event) {
+      event.preventDefault();
+      if (activeTouchId === null) {
+        return;
+      }
+
+      for (const t of event.changedTouches) {
+        if (t.identifier === activeTouchId) {
+          activeTouchId = null;
+          endInteraction('touch');
+          break;
+        }
       }
     }
 
-    function onWindowBlur() {
-      isPointerDown = false;
-      clearTouchThreshold();
-      stopSynth(80);
+    function onMouseDown(event) {
+      event.preventDefault();
+      if (isMouseDown) {
+        return;
+      }
+
+      isMouseDown = true;
+      beginInteraction(event.clientX, event.clientY, 'mouse');
     }
 
-    unlockButton.addEventListener('pointerup', unlockAudioFromButton);
-    unlockButton.addEventListener('click', unlockAudioFromButton);
-    canvas.addEventListener('pointerdown', onPointerDown);
-    canvas.addEventListener('pointermove', onPointerMove);
-    canvas.addEventListener('pointerup', onPointerUp);
-    canvas.addEventListener('pointercancel', onPointerCancel);
-    global.addEventListener('blur', onWindowBlur);
+    function onMouseMove(event) {
+      if (!isMouseDown) {
+        return;
+      }
+
+      moveInteraction(event.clientX, event.clientY, 'mouse');
+    }
+
+    function onMouseUp(event) {
+      if (!isMouseDown) {
+        return;
+      }
+
+      event.preventDefault();
+      isMouseDown = false;
+      endInteraction('mouse');
+    }
+
+    function updateTouchParameters() {
+      if (!persistentPoint) return;
+
+      const bounds = canvas.getBoundingClientRect();
+      const width = bounds.width;
+      const height = bounds.height;
+
+      const normalizedX = Math.max(0, Math.min(1, persistentPoint.x / width));
+      const normalizedY = Math.max(0, Math.min(1, persistentPoint.y / height));
+
+      const yFilterFreq = CONFIG.filter.maxFreq - (normalizedY * (CONFIG.filter.maxFreq - CONFIG.filter.minFreq));
+      const xFilterFreq = CONFIG.filter.minFreq + (normalizedX * (CONFIG.filter.maxFreq - CONFIG.filter.minFreq));
+      const xFilterQ = CONFIG.filter.minQ + (normalizedX * (CONFIG.filter.maxQ - CONFIG.filter.minQ));
+      const displayedFilterFreq = CONFIG.mapping.xAxisTarget === 'filterFrequency'
+        ? (touchVoiceMode === 'short' ? xFilterFreq * CONFIG.touch.shortFrequencyMultiplier : xFilterFreq)
+        : yFilterFreq;
+
+      lastNormalizedX = normalizedX;
+      lastNormalizedY = normalizedY;
+      lastFilterFreq = displayedFilterFreq;
+      lastFilterQ = xFilterQ;
+      updateStatus();
+
+      updateSynthParameters(normalizedX, normalizedY);
+    }
+
+    async function onUnlockGesture(event, source) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const now = global.performance.now();
+      if (now - lastUnlockTriggerAt < 300) {
+        return;
+      }
+      lastUnlockTriggerAt = now;
+
+      await unlockAudioFromButton(source);
+    }
+
+    canvas.addEventListener('pointerdown', onPointerDown, { passive: false });
+    canvas.addEventListener('pointermove', onPointerMove, { passive: false });
+    canvas.addEventListener('pointerup', onPointerUp, { passive: false });
+    canvas.addEventListener('pointercancel', onPointerUp, { passive: false });
+
+    canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+    canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+    canvas.addEventListener('touchcancel', onTouchEnd, { passive: false });
+    canvas.addEventListener('mousedown', onMouseDown);
+    global.addEventListener('mousemove', onMouseMove);
+    global.addEventListener('mouseup', onMouseUp);
     global.addEventListener('resize', resizeCanvas);
+
+    audioUnlockButton.addEventListener('pointerup', async (event) => {
+      await onUnlockGesture(event, 'unlock-button-pointerup');
+    }, { passive: false });
+
+    audioUnlockButton.addEventListener('click', async (event) => {
+      await onUnlockGesture(event, 'unlock-button-click');
+    });
+
+    audioUnlockEl.addEventListener('pointerup', async (event) => {
+      await onUnlockGesture(event, 'unlock-overlay-pointerup');
+    }, { passive: false });
+
+    audioUnlockEl.addEventListener('click', async (event) => {
+      await onUnlockGesture(event, 'unlock-overlay-click');
+    });
 
     if (global.ResizeObserver) {
       resizeObserver = new global.ResizeObserver(resizeCanvas);
@@ -501,7 +778,8 @@
 
     resizeCanvas();
     draw();
-    updateStatus('ready');
+    updateAudioUnlockUI();
+    updateStatus();
 
     return {
       root,
@@ -511,29 +789,36 @@
       },
       hide() {
         root.style.display = 'none';
-        isPointerDown = false;
-        clearTouchThreshold();
-        stopSynth(80);
       },
       destroy() {
-        global.cancelAnimationFrame(frameId);
+        if (isPlaying) {
+          stopSynth(80);
+        }
+
         canvas.removeEventListener('pointerdown', onPointerDown);
         canvas.removeEventListener('pointermove', onPointerMove);
         canvas.removeEventListener('pointerup', onPointerUp);
-        canvas.removeEventListener('pointercancel', onPointerCancel);
-        unlockButton.removeEventListener('pointerup', unlockAudioFromButton);
-        unlockButton.removeEventListener('click', unlockAudioFromButton);
-        global.removeEventListener('blur', onWindowBlur);
+        canvas.removeEventListener('pointercancel', onPointerUp);
+        canvas.removeEventListener('touchstart', onTouchStart);
+        canvas.removeEventListener('touchmove', onTouchMove);
+        canvas.removeEventListener('touchend', onTouchEnd);
+        canvas.removeEventListener('touchcancel', onTouchEnd);
+        canvas.removeEventListener('mousedown', onMouseDown);
+
+        global.removeEventListener('mousemove', onMouseMove);
+        global.removeEventListener('mouseup', onMouseUp);
         global.removeEventListener('resize', resizeCanvas);
+
         if (resizeObserver) {
           resizeObserver.disconnect();
         }
+
         if (root.parentNode) {
           root.parentNode.removeChild(root);
         }
       },
       getConfig() {
-        return { ...config };
+        return { ...CONFIG };
       }
     };
   }
@@ -541,6 +826,6 @@
   global.AmbSynthEmbed = {
     mount,
     create: mount,
-    version: '0.2.0-inline'
+    version: '0.3.0-original-parity'
   };
 })(typeof window !== 'undefined' ? window : this);
