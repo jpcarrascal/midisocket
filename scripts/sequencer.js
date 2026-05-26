@@ -501,33 +501,39 @@ function applyServerAssignmentsToRoutingMatrix() {
     const assignments = app.deviceAssignments || {};
     const assignedTrackIds = new Set(Object.keys(assignments).map(id => id.toString()));
 
-    // Apply authoritative server assignments to the routing matrix.
-    Object.entries(assignments).forEach(([trackId, assignment]) => {
-        if (!assignment || assignment.deviceId === undefined || assignment.deviceId === null) return;
+    app.isApplyingServerAssignments = true;
 
-        const configuredDevice = deviceConfig.getDeviceConfig(assignment.deviceId);
-        const channel = (configuredDevice && Number.isInteger(configuredDevice.assignedChannel))
-            ? configuredDevice.assignedChannel - 1
-            : 0;
+    try {
+        // Apply authoritative server assignments to the routing matrix.
+        Object.entries(assignments).forEach(([trackId, assignment]) => {
+            if (!assignment || assignment.deviceId === undefined || assignment.deviceId === null) return;
 
-        app.routingMatrix.updateRouting(trackId.toString(), {
-            deviceId: `device:${assignment.deviceId}`,
-            channel,
-            enabled: true,
-            channelLocked: true
-        });
-    });
+            const configuredDevice = deviceConfig.getDeviceConfig(assignment.deviceId);
+            const channel = (configuredDevice && Number.isInteger(configuredDevice.assignedChannel))
+                ? configuredDevice.assignedChannel - 1
+                : 0;
 
-    // Clear routing for active tracks that no longer have an assignment.
-    const activeTracks = app.routingMatrix.getAllTracks();
-    for (const [trackId] of activeTracks) {
-        if (!assignedTrackIds.has(trackId.toString())) {
             app.routingMatrix.updateRouting(trackId.toString(), {
-                deviceId: null,
-                enabled: false,
-                channelLocked: false
+                deviceId: `device:${assignment.deviceId}`,
+                channel,
+                enabled: true,
+                channelLocked: true
             });
+        });
+
+        // Clear routing for active tracks that no longer have an assignment.
+        const activeTracks = app.routingMatrix.getAllTracks();
+        for (const [trackId] of activeTracks) {
+            if (!assignedTrackIds.has(trackId.toString())) {
+                app.routingMatrix.updateRouting(trackId.toString(), {
+                    deviceId: null,
+                    enabled: false,
+                    channelLocked: false
+                });
+            }
         }
+    } finally {
+        app.isApplyingServerAssignments = false;
     }
 }
 
@@ -586,6 +592,11 @@ function onTrackChange(action, trackId, track) {
 
 function onRoutingChange(trackId, routing) {
     console.log('Routing change:', trackId, routing);
+
+    if (app.isApplyingServerAssignments) {
+        console.log('Routing change suppressed while applying server assignments');
+        return;
+    }
     
     // Send updated assignment to the track when routing changes
     const track = app.routingMatrix.getTrack(trackId);

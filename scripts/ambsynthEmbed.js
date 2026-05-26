@@ -373,6 +373,7 @@
         touchMode = 'long';
         touchVoiceStarted = true;
         startSynth(CONFIG.envelope.attack);
+        updateSynthParameters(lastX, lastY);
       }, CONFIG.touch.thresholdMs);
     }
 
@@ -382,6 +383,7 @@
 
       if (duration < CONFIG.touch.thresholdMs) {
         touchMode = 'short';
+        updateSynthParameters(lastX, lastY);
         startSynth(0);
         stopSynth(CONFIG.touch.shortReleaseMs);
       } else if (touchVoiceStarted) {

@@ -120,6 +120,45 @@ function emitTrackAssignment(sessionName, currentSession, socketID, trackNumber)
     return true;
 }
 
+function syncDeviceAssignmentFromTrackMessage(currentSession, msg) {
+    if (!currentSession || !msg) {
+        return;
+    }
+
+    const trackNumber = currentSession.getParticipantNumber(msg.socketID);
+    if (trackNumber < 0) {
+        return;
+    }
+
+    const nextDeviceId = msg.device && msg.device.id !== undefined ? msg.device.id : null;
+    const currentAssignment = currentSession.getDeviceForTrack(trackNumber);
+
+    // If another track is already marked with the same device, clear it first so the
+    // server-side device map stays aligned with the sequencer's authoritative routing.
+    if (nextDeviceId !== null) {
+        for (const [assignedTrack, assignment] of Object.entries(currentSession.getDeviceAssignments())) {
+            if (parseInt(assignedTrack, 10) !== trackNumber && assignment && assignment.deviceId === nextDeviceId) {
+                currentSession.clearDeviceAssignment(parseInt(assignedTrack, 10));
+            }
+        }
+    }
+
+    if (nextDeviceId === null) {
+        if (currentAssignment) {
+            currentSession.clearDeviceAssignment(trackNumber);
+        }
+        return;
+    }
+
+    const initials = currentSession.getParticipantInitials(msg.socketID) || (currentAssignment ? currentAssignment.userInitials : '');
+    currentSession.assignDeviceToTrack(
+        trackNumber,
+        nextDeviceId,
+        msg.device.name || 'Unknown Device',
+        initials
+    );
+}
+
 function scheduleSlotExpiration(sessionName, currentSession, trackNumber, socketID, initials) {
     const slotInfo = currentSession.getTrackSlot(trackNumber);
     if (!slotInfo) {
@@ -502,6 +541,9 @@ io.on('connection', (socket) => {
                 msg.slotDurationSec = currentSession.getSlotDurationSec();
                 msg.slotExpiresAt = slotInfo ? slotInfo.expiresAt : null;
             }
+
+            syncDeviceAssignmentFromTrackMessage(currentSession, msg);
+            emitDeviceAssignments(session, currentSession);
         }
 
         // Forward assignment response directly to the requesting track
