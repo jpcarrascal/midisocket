@@ -147,6 +147,7 @@ if(!initials && session) { // No initials == no socket connection
     var body = document.querySelector("body");
     var noSleep = (typeof NoSleep !== 'undefined') ? new NoSleep() : null;
     var noSleepEnabled = false;
+    var noSleepGestureArmed = false;
 
     function enableNoSleep() {
         if (!noSleep || noSleepEnabled) {
@@ -177,21 +178,48 @@ if(!initials && session) { // No initials == no socket connection
         }
     }
 
-    function handleNoSleepGesture() {
-        enableNoSleep();
+    function disarmNoSleepGestureListeners() {
+        if (!noSleepGestureArmed) {
+            return;
+        }
+
+        document.removeEventListener('touchstart', handleNoSleepGesture);
+        document.removeEventListener('pointerdown', handleNoSleepGesture);
+        document.removeEventListener('click', handleNoSleepGesture);
+        noSleepGestureArmed = false;
     }
 
-    document.addEventListener('touchstart', handleNoSleepGesture, { once: true, passive: true });
-    document.addEventListener('pointerdown', handleNoSleepGesture, { once: true, passive: true });
-    document.addEventListener('click', handleNoSleepGesture, { once: true, passive: true });
+    function armNoSleepGestureListeners() {
+        if (!noSleep || noSleepGestureArmed) {
+            return;
+        }
+
+        document.addEventListener('touchstart', handleNoSleepGesture, { once: true, passive: true });
+        document.addEventListener('pointerdown', handleNoSleepGesture, { once: true, passive: true });
+        document.addEventListener('click', handleNoSleepGesture, { once: true, passive: true });
+        noSleepGestureArmed = true;
+    }
+
+    function handleNoSleepGesture() {
+        enableNoSleep();
+        disarmNoSleepGestureListeners();
+    }
+
+    armNoSleepGestureListeners();
 
     document.addEventListener('visibilitychange', function() {
         if (document.visibilityState === 'hidden') {
             disableNoSleep();
+            disarmNoSleepGestureListeners();
+        } else {
+            armNoSleepGestureListeners();
         }
     });
 
-    window.addEventListener('beforeunload', disableNoSleep);
+    window.addEventListener('beforeunload', function() {
+        disableNoSleep();
+        disarmNoSleepGestureListeners();
+    });
 
     /* ----------- Socket messages ------------ */
 

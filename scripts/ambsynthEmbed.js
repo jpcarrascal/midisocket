@@ -189,6 +189,11 @@
       audioUnlockEl.style.display = audioUnlocked ? 'none' : 'flex';
     }
 
+    function refreshAudioUnlockState() {
+      audioUnlocked = !!(audioContext && audioContext.state === 'running');
+      updateAudioUnlockUI();
+    }
+
     function initAudioContext() {
       if (audioContext) return;
       const AudioContextCtor = global.AudioContext || global.webkitAudioContext;
@@ -209,6 +214,13 @@
       masterGain.connect(limiter);
       limiter.connect(audioContext.destination);
       masterGain.gain.value = CONFIG.output.gain;
+
+      if (typeof audioContext.addEventListener === 'function') {
+        audioContext.addEventListener('statechange', () => {
+          refreshAudioUnlockState();
+          updateStatus();
+        });
+      }
     }
 
     async function ensureAudioRunning(source = 'gesture') {
@@ -255,7 +267,8 @@
     }
 
     async function unlockAudioFromButton(source) {
-      if (audioUnlocked || unlockInProgress) {
+      refreshAudioUnlockState();
+      if (unlockInProgress || (audioContext && audioContext.state === 'running' && audioUnlocked)) {
         return;
       }
 
@@ -529,6 +542,7 @@
       touchVoiceStarted = false;
       touchVoiceMode = null;
       lastStatusNote = source + ' start';
+      refreshAudioUnlockState();
       updateStatus();
 
       if (!audioUnlocked || !audioContext || audioContext.state !== 'running') {
