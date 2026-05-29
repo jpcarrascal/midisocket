@@ -28,6 +28,7 @@ var maxRetries = 3;
 const deviceNameElement = document.getElementById("device-name");
 const trackInfoElement = document.getElementById("track-info");
 const deviceInfoElement = document.getElementById("device-info");
+const deviceImageElement = document.getElementById("device-image");
 const controllerContainer = document.getElementById("controller-container");
 const connectionStatus = document.getElementById("connection-status");
 const midiActivity = document.getElementById("midi-activity");
@@ -372,6 +373,10 @@ function clearQueueMessage() {
 function updateDeviceInterface(device) {
     if (!device) {
         deviceNameElement.textContent = "No Pedal Assigned";
+        if (deviceImageElement) {
+            deviceImageElement.style.display = 'none';
+            deviceImageElement.removeAttribute('src');
+        }
         clearDynamicControllerContent();
         // Reset to default background
         document.body.style.backgroundColor = '#1a1a1a';
@@ -382,6 +387,16 @@ function updateDeviceInterface(device) {
     console.log("Track received device:", device.name, "with controllers:", device.controllers);
     console.log("Track received device color:", device.color);
     deviceNameElement.textContent = device.name || "Unknown Device";
+
+    if (deviceImageElement) {
+        if (device.image) {
+            deviceImageElement.src = device.image;
+            deviceImageElement.style.display = 'block';
+        } else {
+            deviceImageElement.style.display = 'none';
+            deviceImageElement.removeAttribute('src');
+        }
+    }
     
     // Apply device color as background
     if (device.color) {

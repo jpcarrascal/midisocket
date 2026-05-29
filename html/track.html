@@ -40,9 +40,14 @@
 
       <!-- Header with device info -->
       <div id="device-info" class="device-header">
-        <h2 id="device-name">No Pedal Assigned</h2>
-        <p id="track-info">Track Controller</p>
-        <p id="slot-countdown">Remaining: --:--</p>
+        <div class="device-header-content">
+          <img id="device-image" class="device-image" src="" alt="Assigned pedal image" style="display:none;">
+          <div class="device-text-content">
+            <h2 id="device-name">No Pedal Assigned</h2>
+            <p id="track-info">Track Controller</p>
+            <p id="slot-countdown">Remaining: --:--</p>
+          </div>
+        </div>
       </div>
 
       <div id="queue-message" class="queue-message" style="display:none;"></div>

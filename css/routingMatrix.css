@@ -633,6 +633,8 @@ html {
     background: white;
     object-fit: contain;
 }
+
+#copy-url {
     font-size: 14px;
     transition: background-color 0.2s ease;
 }
@@ -1191,6 +1193,46 @@ html {
     cursor: pointer;
 }
 
+.device-appearance-group {
+    margin-bottom: 0;
+}
+
+.device-appearance-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.device-color-field,
+.device-image-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.device-image-field select {
+    min-width: 220px;
+}
+
+.device-image-preview {
+    width: 44px;
+    height: 44px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f7fafc;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.device-image-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
 .controller-form {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
@@ -1322,21 +1364,6 @@ html {
     margin: 0;
 }
 
-.remove-controller-btn {
-    background: #f56565;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.remove-controller-btn:hover {
-    background: #e53e3e;
-}
-
 .controller-form-row {
     display: grid;
     grid-template-columns: 2fr 1fr 1fr;
@@ -1413,6 +1440,16 @@ html {
     border-radius: 50%;
     border: 2px solid #fff;
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+    flex-shrink: 0;
+}
+
+.device-pedal-thumbnail {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    background: #ffffff;
     flex-shrink: 0;
 }
 

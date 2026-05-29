@@ -7,6 +7,7 @@ class DeviceConfiguration {
     constructor() {
         this.configuredDevices = []; // User-configured custom devices
         this.availableInterfaces = []; // From MIDI system
+        this.availablePedalImages = []; // From /images/pedals
         this.nextDeviceId = 1; // Auto-increment ID for new devices
         this.deviceAssignments = {}; // Maps trackNumber -> {deviceId, deviceName, userInitials}
         
@@ -24,6 +25,9 @@ class DeviceConfiguration {
             // Form elements
             deviceName: null,
             deviceColor: null,
+            deviceImage: null,
+            deviceImagePreview: null,
+            deviceImagePreviewImg: null,
             colorPreview: null,
             controllersContainer: null,
             addControllerBtn: null
@@ -39,6 +43,7 @@ class DeviceConfiguration {
     async initialize() {
         console.log('Initializing device configuration system...');
         this.initializeElements();
+        await this.loadPedalImages();
         this.attachEventListeners();
         this.loadConfiguration();
         this.updateConfigurationTable();
@@ -74,6 +79,9 @@ class DeviceConfiguration {
         this.elements.addDeviceForm = document.getElementById('add-device-form');
         this.elements.deviceName = document.getElementById('device-name');
         this.elements.deviceColor = document.getElementById('device-color');
+        this.elements.deviceImage = document.getElementById('device-image');
+        this.elements.deviceImagePreview = document.getElementById('device-image-preview');
+        this.elements.deviceImagePreviewImg = document.getElementById('device-image-preview-img');
         this.elements.controllersContainer = document.getElementById('controllers-container');
         this.elements.addControllerBtn = document.getElementById('add-controller-btn');
         
@@ -127,6 +135,10 @@ class DeviceConfiguration {
             e.preventDefault();
             this.handleCreateDevice();
         });
+
+        this.elements.deviceImage?.addEventListener('change', () => {
+            this.updateDeviceImagePreview(this.elements.deviceImage.value || '');
+        });
         
         this.elements.addControllerBtn?.addEventListener('click', () => this.addControllerForm());
         
@@ -163,6 +175,11 @@ class DeviceConfiguration {
         if (this.elements.addDeviceForm) {
             this.elements.addDeviceForm.reset();
         }
+
+        if (this.elements.deviceImage) {
+            this.populateDeviceImageOptions('');
+        }
+        this.updateDeviceImagePreview('');
         
         // Clear controllers
         if (this.elements.controllersContainer) {
@@ -184,6 +201,88 @@ class DeviceConfiguration {
         
         // Clear editing state
         this.editingDevice = null;
+    }
+
+    /**
+     * Fetch and populate pedal image options from server
+     */
+    async loadPedalImages() {
+        try {
+            const response = await fetch('/api/pedal-images', { cache: 'no-cache' });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const payload = await response.json();
+            this.availablePedalImages = Array.isArray(payload.images) ? payload.images : [];
+        } catch (error) {
+            console.warn('Unable to load pedal images:', error);
+            this.availablePedalImages = [];
+        }
+
+        this.populateDeviceImageOptions();
+    }
+
+    /**
+     * Populate the pedal image select options
+     */
+    populateDeviceImageOptions(selectedImage = '') {
+        if (!this.elements.deviceImage) return;
+
+        const options = ['<option value="">No image</option>'];
+        this.availablePedalImages.forEach(imagePath => {
+            const selected = imagePath === selectedImage ? ' selected' : '';
+            options.push(`<option value="${imagePath}"${selected}>${this.getImageDisplayName(imagePath)}</option>`);
+        });
+
+        this.elements.deviceImage.innerHTML = options.join('');
+
+        if (selectedImage && !this.availablePedalImages.includes(selectedImage)) {
+            const fallbackOption = document.createElement('option');
+            fallbackOption.value = selectedImage;
+            fallbackOption.textContent = this.getImageDisplayName(selectedImage);
+            fallbackOption.selected = true;
+            this.elements.deviceImage.appendChild(fallbackOption);
+        }
+
+        this.elements.deviceImage.value = selectedImage || '';
+        this.updateDeviceImagePreview(selectedImage || '');
+    }
+
+    /**
+     * Update the image preview widget
+     */
+    updateDeviceImagePreview(imagePath) {
+        if (!this.elements.deviceImagePreview || !this.elements.deviceImagePreviewImg) return;
+
+        if (!imagePath) {
+            this.elements.deviceImagePreview.style.display = 'none';
+            this.elements.deviceImagePreviewImg.removeAttribute('src');
+            return;
+        }
+
+        this.elements.deviceImagePreview.style.display = 'flex';
+        this.elements.deviceImagePreviewImg.src = imagePath;
+    }
+
+    /**
+     * Human-readable file label for selects
+     */
+    getImageDisplayName(imagePath) {
+        const filename = (imagePath || '').split('/').pop() || imagePath;
+        return filename;
+    }
+
+    /**
+     * Normalize image path to web path
+     */
+    normalizeDeviceImagePath(imagePath) {
+        if (!imagePath || typeof imagePath !== 'string') return '';
+        const trimmed = imagePath.trim();
+        if (!trimmed) return '';
+        if (trimmed.startsWith('/images/pedals/')) return trimmed;
+        if (trimmed.startsWith('images/pedals/')) return `/${trimmed}`;
+        if (!trimmed.includes('/')) return `/images/pedals/${trimmed}`;
+        return trimmed;
     }
 
     /**
@@ -322,10 +421,12 @@ class DeviceConfiguration {
             const formData = new FormData(this.elements.addDeviceForm);
             const deviceName = formData.get('deviceName')?.trim();
             const deviceColor = formData.get('deviceColor');
+            const deviceImage = this.normalizeDeviceImagePath(formData.get('deviceImage') || '');
             
             console.log('Form data collected:', {
                 deviceName,
                 deviceColor,
+                deviceImage,
                 formElementValue: this.elements.deviceColor?.value
             });
             
@@ -423,6 +524,7 @@ class DeviceConfiguration {
                 // Update existing device
                 this.editingDevice.name = deviceName;
                 this.editingDevice.color = deviceColor;
+                this.editingDevice.image = deviceImage;
                 this.editingDevice.controllers = controllers;
                 this.editingDevice.updatedAt = new Date().toISOString();
                 
@@ -434,6 +536,7 @@ class DeviceConfiguration {
                     id: this.nextDeviceId++,
                     name: deviceName,
                     color: deviceColor,
+                    image: deviceImage,
                     controllers: controllers,
                     assignedInterface: '',
                     assignedChannel: 1,
@@ -558,6 +661,7 @@ class DeviceConfiguration {
             return `
             <tr data-device-id="${device.id}" style="background-color: ${device.color}15;">
                 <td class="device-name-cell">
+                    ${device.image ? `<img class="device-pedal-thumbnail" src="${device.image}" alt="${device.name} pedal image">` : ''}
                     <div class="device-color-indicator" style="background-color: ${device.color};"></div>
                     <div class="device-info">
                         <strong>${device.name}</strong>
@@ -875,6 +979,7 @@ class DeviceConfiguration {
                         id: parseInt(deviceId), // Ensure it's a number
                         name: device.name || 'Unknown Device',
                         color: device.color || '#4a90e2',
+                        image: this.normalizeDeviceImagePath(device.image || ''),
                         controllers: controllers,
                         assignedInterface: device.assignedInterface || '',
                         assignedChannel: device.assignedChannel || 1,
@@ -1062,6 +1167,7 @@ class DeviceConfiguration {
                     id: device.id,
                     name: device.name,
                     color: device.color || '#4a90e2', // Default color if missing
+                    image: this.normalizeDeviceImagePath(device.image || ''),
                     controllers: controllers,
                     assignedInterface: device.assignedInterface || '',
                     assignedChannel: device.assignedChannel || 1,
@@ -1144,6 +1250,7 @@ class DeviceConfiguration {
         // Pre-fill the form with existing device data
         document.getElementById('device-name').value = device.name;
         document.getElementById('device-color').value = device.color;
+        this.populateDeviceImageOptions(this.normalizeDeviceImagePath(device.image || ''));
         
         // Clear existing controllers and reset counter
         const container = document.getElementById('controllers-container');

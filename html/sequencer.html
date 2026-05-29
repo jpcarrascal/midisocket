@@ -202,9 +202,23 @@
                 <h4><label for="device-name">Device Name *</label></h4>
                 <input type="text" id="device-name" name="deviceName" required placeholder="Enter device name...">
               </div>
-              <div class="form-group">
-                <h4><label for="device-color">Device Color *</label></h4>
-                <input type="color" id="device-color" name="deviceColor" value="#4a90e2" required>
+              <div class="form-group device-appearance-group">
+                <h4>Device Appearance *</h4>
+                <div class="device-appearance-row">
+                  <div class="device-color-field">
+                    <label for="device-color">Color</label>
+                    <input type="color" id="device-color" name="deviceColor" value="#4a90e2" required>
+                  </div>
+                  <div class="device-image-field">
+                    <label for="device-image">Pedal Image</label>
+                    <select id="device-image" name="deviceImage">
+                      <option value="">No image</option>
+                    </select>
+                  </div>
+                  <div class="device-image-preview" id="device-image-preview" aria-live="polite">
+                    <img id="device-image-preview-img" src="" alt="Selected pedal image preview">
+                  </div>
+                </div>
               </div>
             </div>
 

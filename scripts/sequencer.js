@@ -37,6 +37,7 @@ function syncConfiguredDevicesToServer() {
         id: device.id,
         name: device.name,
         color: device.color,
+        image: device.image || '',
         assignedChannel: device.assignedChannel,
         assignedInterface: device.assignedInterface,
         controllers: device.controllers || []

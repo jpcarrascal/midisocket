@@ -327,6 +327,29 @@ app.get('/latency', (req, res) => {
     res.sendFile(__dirname + page);
 });
 
+app.get('/api/pedal-images', (req, res) => {
+    try {
+        const pedalsDir = __dirname + '/images/pedals';
+        const entries = fs.readdirSync(pedalsDir, { withFileTypes: true });
+        const allowedExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg'];
+
+        const images = entries
+            .filter(entry => entry.isFile())
+            .map(entry => entry.name)
+            .filter(name => {
+                const lower = name.toLowerCase();
+                return allowedExtensions.some(ext => lower.endsWith(ext));
+            })
+            .sort((a, b) => a.localeCompare(b))
+            .map(name => `/images/pedals/${name}`);
+
+        res.json({ images });
+    } catch (error) {
+        logger.error(`Failed to list pedal images: ${error.message}`);
+        res.status(500).json({ images: [], error: 'Failed to list pedal images' });
+    }
+});
+
 app.use('/scripts', express.static(__dirname + '/scripts/'));
 app.use('/css', express.static(__dirname + '/css/'));
 app.use('/images', express.static(__dirname + '/images/'));

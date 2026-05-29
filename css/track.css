@@ -98,13 +98,38 @@ body {
 
 /* Device Info Header - MINIMAL space usage */
 .device-header {
-    text-align: center;
+    text-align: left;
     padding: calc(0.2em + max(0px, env(safe-area-inset-top))) 0.2em 0.2em 0.2em;
     background: linear-gradient(135deg, #888888 0%, #666666 100%);
     margin-bottom: 0.1em;
     margin-top: 0;
     border-radius: 4px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.device-header-content {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+}
+
+.device-text-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    min-width: 0;
+    flex: 1;
+}
+
+.device-image {
+    width: clamp(52px, 11vh, 84px);
+    height: clamp(52px, 11vh, 84px);
+    object-fit: contain;
+    border-radius: 6px;
+    background: transparent;
+    border: none;
+    flex-shrink: 0;
 }
 
 #device-name {
