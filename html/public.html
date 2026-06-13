@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>MIDI Socket - Public Dashboard</title>
+    <link rel="stylesheet" href="css/public.css?v=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta charset="utf-8">
+  </head>
+  <body>
+    <div class="dashboard-viewport">
+      <main class="dashboard-shell" id="dashboard-shell">
+        <section class="quadrant panel" aria-labelledby="session-label">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <h2 id="session-label">Session: --</h2>
+            </div>
+          </div>
+          <div class="panel-body table-panel-body">
+            <table class="device-table">
+              <thead>
+                <tr>
+                  <th>Device</th>
+                  <th>User</th>
+                </tr>
+              </thead>
+              <tbody id="device-table-body">
+                <tr>
+                  <td colspan="2" class="empty-state-cell">Waiting for configured devices...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="quadrant panel" aria-label="Local camera panel">
+          <div class="panel-header panel-header-controls">
+            <div class="camera-controls">
+              <select id="camera-select" aria-label="Select camera">
+                <option value="">Default camera</option>
+              </select>
+              <button id="start-camera" type="button">Start Camera</button>
+              <button id="stop-camera" type="button" disabled>Stop</button>
+            </div>
+          </div>
+          <div class="panel-body video-panel-body">
+            <video id="camera-feed" autoplay playsinline muted></video>
+            <p id="camera-message" class="helper-text">Camera is off.</p>
+          </div>
+        </section>
+
+        <section class="quadrant panel" aria-labelledby="queue-title">
+          <div class="panel-header">
+            <div class="panel-title-group panel-title-inline">
+              <h2 id="queue-title">Waiting List</h2>
+              <div class="panel-badges">
+                <span id="queue-summary" class="status-pill">Queue: 0</span>
+                <span id="slot-summary" class="status-pill">Active Slots: 0</span>
+              </div>
+            </div>
+          </div>
+          <div class="panel-body queue-panel-body">
+            <ol id="queue-list" class="queue-list">
+              <li class="empty-state-item">Nobody is waiting.</li>
+            </ol>
+          </div>
+        </section>
+
+        <section class="quadrant panel" aria-label="Join session QR code">
+          <div class="panel-body qr-panel-body">
+            <img id="qr-image" alt="QR code for joining the session">
+            <p id="join-url" class="join-url">Loading join URL...</p>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://cdn.socket.io/4.4.0/socket.io.min.js"></script>
+    <script src="scripts/public.js"></script>
+  </body>
+</html>

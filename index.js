@@ -61,6 +61,11 @@ function emitDeviceAssignments(sessionName, currentSession) {
             assignments: currentSession.getDeviceAssignments()
         });
     }
+
+    io.to(sessionName).emit('public-device-assignments-updated', {
+        configuredDevices: currentSession.getConfiguredDevices() || [],
+        assignments: currentSession.getDeviceAssignments()
+    });
 }
 
 function emitQueueUpdates(sessionName, currentSession) {
@@ -94,6 +99,25 @@ function emitQueueUpdates(sessionName, currentSession) {
             nextInitials: currentSession.getNextQueuedInitials()
         });
     }
+
+    io.to(sessionName).emit('public-queue-updated', {
+        queue,
+        length: queue.length,
+        activeSlots: currentSession.getActiveSlotCount(),
+        nextInitials: currentSession.getNextQueuedInitials()
+    });
+}
+
+function emitPublicSnapshot(currentSession, socketID) {
+    io.to(socketID).emit('public-session-snapshot', {
+        configuredDevices: currentSession.getConfiguredDevices() || [],
+        assignments: currentSession.getDeviceAssignments(),
+        queue: currentSession.getWaitingQueue(),
+        length: currentSession.getWaitingQueueLength(),
+        activeSlots: currentSession.getActiveSlotCount(),
+        slotDurationSec: currentSession.getSlotDurationSec(),
+        isPlaying: Boolean(currentSession.getAttribute('isPlaying'))
+    });
 }
 
 function emitTrackAssignment(sessionName, currentSession, socketID, trackNumber) {
@@ -312,6 +336,11 @@ app.get('/track', (req, res) => {
     res.sendFile(__dirname + page);
 });
 
+app.get('/public', (req, res) => {
+    var page = '/html/public.html';
+    res.sendFile(__dirname + page);
+});
+
 app.get('/ambsynth', (req, res) => {
     var page = '/html/ambsynth.html';
     res.sendFile(__dirname + page);
@@ -409,6 +438,29 @@ io.on('connection', (socket) => {
             emitDeviceAssignments(session, sessions.select(session));
             emitQueueUpdates(session, sessions.select(session));
         }
+    } else if (connectionType === 'public') {
+        const currentSession = sessions.select(session);
+
+        if (!currentSession || !currentSession.isReady()) {
+            io.to(socket.id).emit('exit session', {
+                reason: 'Session not available. Make sure sequencer is running.'
+            });
+            return;
+        }
+
+        emitPublicSnapshot(currentSession, socket.id);
+
+        socket.on('request-public-session-snapshot', () => {
+            const activeSession = sessions.select(session);
+            if (!activeSession) {
+                io.to(socket.id).emit('exit session', {
+                    reason: 'Session not available. Make sure sequencer is running.'
+                });
+                return;
+            }
+
+            emitPublicSnapshot(activeSession, socket.id);
+        });
     } else {
         // Handle track connection
         const currentSession = sessions.select(session);
