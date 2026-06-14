@@ -1,11 +1,23 @@
 const publicApp = {
     sessionName: null,
+    qrBaseUrl: window.location.origin,
     socket: null,
     currentStream: null,
     devices: [],
     assignments: {},
     queue: [],
+    splitState: {
+        left: 0.62,
+        right: 0.7
+    },
+    splitDrag: null,
     elements: {}
+};
+
+const SPLIT_STORAGE_KEY = 'midisocket.publicDashboard.splits.v1';
+const SPLIT_CONFIG = {
+    left: { defaultTop: 0.62, minTop: 0.2, maxTop: 0.8, keyboardStep: 0.02, keyboardStepLarge: 0.05 },
+    right: { defaultTop: 0.7, minTop: 0.2, maxTop: 0.85, keyboardStep: 0.02, keyboardStepLarge: 0.05 }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -17,6 +29,9 @@ function initializePublicDashboard() {
     publicApp.sessionName = params.get('session') || '';
 
     cacheElements();
+    loadSplitState();
+    applySplitState();
+    setupSplitControls();
     publicApp.elements.sessionLabel.textContent = `Session: ${publicApp.sessionName || '--'}`;
     updateJoinQr();
     initializeSocket();
@@ -56,11 +71,27 @@ function initializeSocket() {
     publicApp.socket.on('public-session-snapshot', onPublicSessionSnapshot);
     publicApp.socket.on('public-device-assignments-updated', onDeviceAssignmentsUpdated);
     publicApp.socket.on('public-queue-updated', onQueueUpdated);
+    publicApp.socket.on('qr-base-url-updated', onQrBaseUrlUpdated);
 }
 
 function setupEventListeners() {
     publicApp.elements.startCameraButton.addEventListener('click', startCamera);
     publicApp.elements.stopCameraButton.addEventListener('click', stopCamera);
+
+    window.addEventListener('keydown', onWindowKeyDown);
+}
+
+function setupSplitControls() {
+    const splitters = document.querySelectorAll('.splitter');
+    splitters.forEach((splitter) => {
+        splitter.addEventListener('pointerdown', onSplitterPointerDown);
+        splitter.addEventListener('keydown', onSplitterKeyDown);
+        updateSplitterAria(splitter.dataset.column, splitter);
+    });
+
+    window.addEventListener('pointermove', onWindowPointerMove);
+    window.addEventListener('pointerup', onWindowPointerUp);
+    window.addEventListener('pointercancel', onWindowPointerUp);
 }
 
 function onSocketConnect() {
@@ -76,6 +107,192 @@ function onSocketDisconnect() {
     }
 }
 
+function loadSplitState() {
+    publicApp.splitState = {
+        left: SPLIT_CONFIG.left.defaultTop,
+        right: SPLIT_CONFIG.right.defaultTop
+    };
+
+    try {
+        const stored = window.localStorage.getItem(SPLIT_STORAGE_KEY);
+        if (!stored) {
+            return;
+        }
+
+        const parsed = JSON.parse(stored);
+        ['left', 'right'].forEach((column) => {
+            const value = Number(parsed?.[column]);
+            if (Number.isFinite(value)) {
+                publicApp.splitState[column] = clampSplitValue(column, value);
+            }
+        });
+    } catch (error) {
+        // Ignore storage failures and fall back to defaults.
+    }
+}
+
+function saveSplitState() {
+    try {
+        window.localStorage.setItem(SPLIT_STORAGE_KEY, JSON.stringify(publicApp.splitState));
+    } catch (error) {
+        // Ignore storage failures.
+    }
+}
+
+function applySplitState() {
+    document.documentElement.style.setProperty('--left-top-height', `${Math.round(publicApp.splitState.left * 100)}%`);
+    document.documentElement.style.setProperty('--right-top-height', `${Math.round(publicApp.splitState.right * 100)}%`);
+
+    updateSplitterAria('left');
+    updateSplitterAria('right');
+}
+
+function clampSplitValue(column, value) {
+    const config = SPLIT_CONFIG[column];
+    return Math.min(config.maxTop, Math.max(config.minTop, value));
+}
+
+function updateSplitValue(column, value) {
+    publicApp.splitState[column] = clampSplitValue(column, value);
+    applySplitState();
+    saveSplitState();
+}
+
+function resetSplitState() {
+    publicApp.splitState.left = SPLIT_CONFIG.left.defaultTop;
+    publicApp.splitState.right = SPLIT_CONFIG.right.defaultTop;
+    applySplitState();
+    saveSplitState();
+}
+
+function updateSplitterAria(column, splitterElement = null) {
+    const element = splitterElement || document.querySelector(`.splitter[data-column="${column}"]`);
+    if (!element) return;
+
+    const ratio = publicApp.splitState[column] * 100;
+    const config = SPLIT_CONFIG[column];
+    element.setAttribute('aria-valuemin', Math.round(config.minTop * 100));
+    element.setAttribute('aria-valuemax', Math.round(config.maxTop * 100));
+    element.setAttribute('aria-valuenow', Math.round(ratio));
+    element.setAttribute('aria-valuetext', `${Math.round(ratio)} percent top panel height`);
+}
+
+function onSplitterPointerDown(event) {
+    const column = event.currentTarget.dataset.column;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    publicApp.splitDrag = {
+        column,
+        pointerId: event.pointerId
+    };
+    updateSplitFromPointer(event.clientY, column);
+}
+
+function onWindowPointerMove(event) {
+    if (!publicApp.splitDrag || event.pointerId !== publicApp.splitDrag.pointerId) {
+        return;
+    }
+
+    updateSplitFromPointer(event.clientY, publicApp.splitDrag.column);
+}
+
+function onWindowPointerUp(event) {
+    if (!publicApp.splitDrag || event.pointerId !== publicApp.splitDrag.pointerId) {
+        return;
+    }
+
+    publicApp.splitDrag = null;
+}
+
+function updateSplitFromPointer(clientY, column) {
+    const columnElement = document.querySelector(`.dashboard-column[data-column="${column}"]`);
+    if (!columnElement) return;
+
+    const rect = columnElement.getBoundingClientRect();
+    const ratio = (clientY - rect.top) / rect.height;
+    updateSplitValue(column, ratio);
+}
+
+function onSplitterKeyDown(event) {
+    const column = event.currentTarget.dataset.column;
+    const config = SPLIT_CONFIG[column];
+    const currentValue = publicApp.splitState[column];
+    const step = event.shiftKey ? config.keyboardStepLarge : config.keyboardStep;
+
+    if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        updateSplitValue(column, currentValue + step);
+    } else if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        updateSplitValue(column, currentValue - step);
+    } else if (event.key === 'Home') {
+        event.preventDefault();
+        updateSplitValue(column, config.defaultTop);
+    }
+}
+
+function onWindowKeyDown(event) {
+    if (event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+    }
+
+    const activeElement = document.activeElement;
+    if (isTextInputContext(activeElement) && !(activeElement && activeElement.classList && activeElement.classList.contains('splitter'))) {
+        return;
+    }
+
+    const key = event.key.toLowerCase();
+    const leftStep = event.shiftKey ? SPLIT_CONFIG.left.keyboardStepLarge : SPLIT_CONFIG.left.keyboardStep;
+    const rightStep = event.shiftKey ? SPLIT_CONFIG.right.keyboardStepLarge : SPLIT_CONFIG.right.keyboardStep;
+
+    if (key === 'q') {
+        event.preventDefault();
+        updateSplitValue('left', publicApp.splitState.left + leftStep);
+    } else if (key === 'a') {
+        event.preventDefault();
+        updateSplitValue('left', publicApp.splitState.left - leftStep);
+    } else if (key === 'w') {
+        event.preventDefault();
+        updateSplitValue('right', publicApp.splitState.right + rightStep);
+    } else if (key === 's') {
+        event.preventDefault();
+        updateSplitValue('right', publicApp.splitState.right - rightStep);
+    } else if (event.key === ' ') {
+        event.preventDefault();
+        if (publicApp.currentStream) {
+            stopCamera();
+        } else {
+            startCamera();
+        }
+    } else if (key === '1') {
+        event.preventDefault();
+        publicApp.splitState.left = 0.5;
+        publicApp.splitState.right = 0.5;
+        applySplitState();
+        saveSplitState();
+    } else if (key === 'r') {
+        if (activeElement && activeElement.classList && activeElement.classList.contains('splitter')) {
+            event.preventDefault();
+            resetSplitState();
+        }
+    }
+}
+
+function isTextInputContext(element) {
+    if (!element) {
+        return false;
+    }
+
+    const tagName = element.tagName ? element.tagName.toLowerCase() : '';
+    return Boolean(
+        element.isContentEditable ||
+        tagName === 'input' ||
+        tagName === 'textarea' ||
+        tagName === 'select' ||
+        tagName === 'button'
+    );
+}
+
 function onExitSession(data) {
     if (publicApp.elements.connectionStatus) {
         publicApp.elements.connectionStatus.textContent = 'Unavailable';
@@ -88,10 +305,22 @@ function onPublicSessionSnapshot(data) {
     publicApp.devices = data.configuredDevices || [];
     publicApp.assignments = data.assignments || {};
     publicApp.queue = data.queue || [];
+    publicApp.qrBaseUrl = normalizeQrBaseUrl(data?.qrBaseUrl) || window.location.origin;
 
     renderDevices();
     renderQueue();
     updateSummaries(data.length, data.activeSlots);
+    updateJoinQr();
+}
+
+function onQrBaseUrlUpdated(data) {
+    const normalized = normalizeQrBaseUrl(data?.baseUrl);
+    if (!normalized) {
+        return;
+    }
+
+    publicApp.qrBaseUrl = normalized;
+    updateJoinQr();
 }
 
 function onDeviceAssignmentsUpdated(data) {
@@ -137,6 +366,7 @@ function renderDevices() {
     body.innerHTML = publicApp.devices.map((device) => {
         const assignment = assignmentsByDeviceId.get(device.id) || null;
         const userLabel = assignment && assignment.userInitials ? escapeHtml(assignment.userInitials) : '---';
+        const deviceColor = device && device.color ? device.color : '#718096';
         const photoCell = device.image
             ? `<img class="device-photo" src="${escapeAttribute(device.image)}" alt="${escapeAttribute(device.name || 'Device')} photo">`
             : '<div class="photo-placeholder">No image</div>';
@@ -145,6 +375,7 @@ function renderDevices() {
             <tr>
                             <td class="device-cell">
                                 ${photoCell}
+                                <span class="device-color-indicator" style="background:${escapeAttribute(deviceColor)}" aria-hidden="true"></span>
                                 <span class="device-name">${escapeHtml(device.name || 'Unnamed Device')}</span>
                             </td>
               <td>${userLabel}</td>
@@ -174,17 +405,67 @@ function updateJoinQr() {
     const joinUrl = buildJoinUrl();
     publicApp.elements.joinUrl.textContent = joinUrl;
 
-    const encodedUrl = encodeURIComponent(joinUrl);
-    publicApp.elements.qrImage.src = `https://qrcode.azurewebsites.net/qr?string=${encodedUrl}`;
+    renderQrCodeToImage(publicApp.elements.qrImage, joinUrl, {
+        width: 512,
+        margin: 1
+    });
 }
 
 function buildJoinUrl() {
-    const baseUrl = `${window.location.origin}/track`;
+    const baseUrl = `${(publicApp.qrBaseUrl || window.location.origin).replace(/\/+$/, '')}/track`;
     if (!publicApp.sessionName) {
         return baseUrl;
     }
 
     return `${baseUrl}?session=${encodeURIComponent(publicApp.sessionName)}`;
+}
+
+function normalizeQrBaseUrl(rawValue) {
+    const value = `${rawValue || ''}`.trim();
+    if (!value) {
+        return null;
+    }
+
+    try {
+        const parsed = new URL(value);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            return null;
+        }
+
+        const sanitizedPath = parsed.pathname && parsed.pathname !== '/'
+            ? parsed.pathname.replace(/\/+$/, '')
+            : '';
+        return `${parsed.origin}${sanitizedPath}`;
+    } catch (error) {
+        return null;
+    }
+}
+
+function renderQrCodeToImage(imageElement, value, options = {}) {
+    if (!imageElement || !value) {
+        return;
+    }
+
+    if (!window.QRCode || typeof window.QRCode.toDataURL !== 'function') {
+        imageElement.removeAttribute('src');
+        imageElement.alt = 'QR code unavailable (local QR library not loaded)';
+        return;
+    }
+
+    window.QRCode.toDataURL(value, {
+        width: options.width || 512,
+        margin: options.margin !== undefined ? options.margin : 1,
+        errorCorrectionLevel: 'M'
+    }, (error, url) => {
+        if (error || !url) {
+            imageElement.removeAttribute('src');
+            imageElement.alt = 'QR code unavailable';
+            return;
+        }
+
+        imageElement.alt = 'QR code for joining the session';
+        imageElement.src = url;
+    });
 }
 
 async function loadAvailableCameras() {

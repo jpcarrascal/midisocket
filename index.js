@@ -68,9 +68,18 @@ function emitDeviceAssignments(sessionName, currentSession) {
     });
 }
 
+function buildStandardQueueMessage(position) {
+    return `No pedals available right now. You are #${position} in line.`;
+}
+
+function buildTakeoverQueueMessage() {
+    return 'Session is temporarily suspended by the host.';
+}
+
 function emitQueueUpdates(sessionName, currentSession) {
     const staleSockets = [];
     let queue = currentSession.getWaitingQueue();
+    const takeoverActive = currentSession.isTakeoverEnabled();
 
     queue.forEach((entry, index) => {
         const waitingSocket = io.sockets.sockets.get(entry.socketID);
@@ -82,7 +91,10 @@ function emitQueueUpdates(sessionName, currentSession) {
         waitingSocket.emit('queue-status', {
             position: index + 1,
             total: queue.length,
-            message: `No pedals available right now. You are #${index + 1} in line.`
+            takeover: takeoverActive,
+            message: takeoverActive
+                ? buildTakeoverQueueMessage()
+                : buildStandardQueueMessage(index + 1)
         });
     });
 
@@ -116,7 +128,100 @@ function emitPublicSnapshot(currentSession, socketID) {
         length: currentSession.getWaitingQueueLength(),
         activeSlots: currentSession.getActiveSlotCount(),
         slotDurationSec: currentSession.getSlotDurationSec(),
-        isPlaying: Boolean(currentSession.getAttribute('isPlaying'))
+        isPlaying: Boolean(currentSession.getAttribute('isPlaying')),
+        qrBaseUrl: currentSession.getAttribute('qrBaseUrl') || null
+    });
+}
+
+function normalizeQrBaseUrl(rawValue) {
+    const value = `${rawValue || ''}`.trim();
+    if (!value) {
+        return null;
+    }
+
+    try {
+        const parsed = new URL(value);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            return null;
+        }
+
+        const sanitizedPath = parsed.pathname && parsed.pathname !== '/'
+            ? parsed.pathname.replace(/\/+$/, '')
+            : '';
+        return `${parsed.origin}${sanitizedPath}`;
+    } catch (error) {
+        return null;
+    }
+}
+
+function emitDeviceRuntimeStateDiagnostics(currentSession) {
+    const seqID = currentSession.getSeqID();
+    if (!seqID) {
+        return;
+    }
+
+    io.to(seqID).emit('device-runtime-state-updated', {
+        deviceStates: currentSession.getAllDeviceRuntimeStates()
+    });
+}
+
+function emitTakeoverState(currentSession, sessionName) {
+    const payload = {
+        takeover: currentSession.getTakeoverState()
+    };
+
+    const seqID = currentSession.getSeqID();
+    if (seqID) {
+        io.to(seqID).emit('takeover-state-updated', payload);
+    }
+
+    io.to(sessionName).emit('takeover-state-updated', payload);
+}
+
+function getSessionMode(currentSession) {
+    if (!currentSession) return 'pause';
+    if (currentSession.isTakeoverEnabled()) return 'takeover';
+    return currentSession.getAttribute('isPlaying') ? 'play' : 'pause';
+}
+
+function emitSessionMode(currentSession, sessionName) {
+    const payload = {
+        mode: getSessionMode(currentSession)
+    };
+
+    const seqID = currentSession.getSeqID();
+    if (seqID) {
+        io.to(seqID).emit('session-mode-updated', payload);
+    }
+
+    io.to(sessionName).emit('session-mode-updated', payload);
+}
+
+function forceActiveParticipantsToQueue(sessionName, currentSession, reason) {
+    const activeParticipants = currentSession.getActiveParticipantsSnapshot();
+
+    activeParticipants.forEach((participant) => {
+        clearTrackSlotTimeout(sessionName, participant.trackNumber);
+        currentSession.releaseParticipant(participant.socketID);
+
+        io.to(sessionName).emit('track left', {
+            track: participant.trackNumber,
+            initials: participant.initials,
+            socketID: participant.socketID
+        });
+
+        currentSession.enqueueWaitingUser(participant.socketID, participant.initials);
+
+        const trackSocket = io.sockets.sockets.get(participant.socketID);
+        if (trackSocket && trackSocket.connected) {
+            const queuePosition = currentSession.getQueuePosition(participant.socketID);
+            trackSocket.emit('queue-status', {
+                position: queuePosition,
+                total: currentSession.getWaitingQueueLength(),
+                takeover: true,
+                message: reason || buildTakeoverQueueMessage()
+            });
+        }
     });
 }
 
@@ -133,6 +238,7 @@ function emitTrackAssignment(sessionName, currentSession, socketID, trackNumber)
     io.to(socketID).emit('track-assignment', {
         socketID: socketID,
         device: fullDevice,
+        deviceState: fullDevice ? currentSession.getDeviceRuntimeState(fullDevice.id) : { controllers: {}, updatedAt: null },
         channel: (fullDevice && Number.isInteger(fullDevice.assignedChannel))
             ? (fullDevice.assignedChannel - 1)
             : 0,
@@ -230,6 +336,10 @@ function scheduleSlotExpiration(sessionName, currentSession, trackNumber, socket
 }
 
 function tryAssignSocketToTrack(sessionName, currentSession, socket, initials) {
+    if (currentSession.isTakeoverEnabled()) {
+        return { assigned: false, reason: 'takeover-active' };
+    }
+
     const safeInitials = (initials && `${initials}`.trim().length > 0) ? initials : 'GUEST';
     const availableDevice = currentSession.getRandomUnassignedDevice();
     if (!availableDevice) {
@@ -267,6 +377,11 @@ function tryAssignSocketToTrack(sessionName, currentSession, socket, initials) {
 }
 
 function tryPromoteQueuedUsers(sessionName, currentSession, excludedSocketID = null) {
+    if (currentSession.isTakeoverEnabled()) {
+        emitQueueUpdates(sessionName, currentSession);
+        return;
+    }
+
     const deferredEntries = [];
 
     while (currentSession.getWaitingQueueLength() > 0) {
@@ -382,6 +497,7 @@ app.get('/api/pedal-images', (req, res) => {
 app.use('/scripts', express.static(__dirname + '/scripts/'));
 app.use('/css', express.static(__dirname + '/css/'));
 app.use('/images', express.static(__dirname + '/images/'));
+app.use('/node_modules', express.static(__dirname + '/node_modules/'));
 
 io.on('connection', (socket) => {
     // Determine connection type from query parameters or referrer
@@ -437,6 +553,9 @@ io.on('connection', (socket) => {
 
             emitDeviceAssignments(session, sessions.select(session));
             emitQueueUpdates(session, sessions.select(session));
+            emitDeviceRuntimeStateDiagnostics(sessions.select(session));
+            emitTakeoverState(sessions.select(session), session);
+            emitSessionMode(sessions.select(session), session);
         }
     } else if (connectionType === 'public') {
         const currentSession = sessions.select(session);
@@ -473,9 +592,12 @@ io.on('connection', (socket) => {
         }
         
         const hasQueueBacklog = currentSession.getWaitingQueueLength() > 0;
+        const takeoverActive = currentSession.isTakeoverEnabled();
         const assignment = hasQueueBacklog
             ? { assigned: false, reason: 'queue-backlog' }
-            : tryAssignSocketToTrack(session, currentSession, socket, initials);
+            : takeoverActive
+                ? { assigned: false, reason: 'takeover-active' }
+                : tryAssignSocketToTrack(session, currentSession, socket, initials);
 
         if (assignment.assigned) {
             logger.info(`#${session} @[${initials}] joined session on track ${assignment.track}`);
@@ -485,11 +607,14 @@ io.on('connection', (socket) => {
             io.to(socket.id).emit('queue-status', {
                 position,
                 total: currentSession.getWaitingQueueLength(),
-                message: `No pedals available right now. You are #${position} in line.`
+                takeover: takeoverActive,
+                message: takeoverActive
+                    ? buildTakeoverQueueMessage()
+                    : buildStandardQueueMessage(position)
             });
 
             const sessionStarted = currentSession.getAttribute("isPlaying");
-            if (sessionStarted) {
+            if (sessionStarted || takeoverActive) {
                 io.to(socket.id).emit('veil-off', { socketID: socket.id });
             } else {
                 io.to(socket.id).emit('veil-on', { socketID: socket.id });
@@ -547,14 +672,28 @@ io.on('connection', (socket) => {
     socket.on('session pause', (msg) => {
         socket.broadcast.to(session).emit('veil-on', msg);
         const currentSession = sessions.select(session);
-        if(currentSession) currentSession.setAttribute("isPlaying", false);
+        if (currentSession) {
+            currentSession.setAttribute("isPlaying", false);
+            currentSession.setTakeoverState(false, 127);
+            emitTakeoverState(currentSession, session);
+            emitSessionMode(currentSession, session);
+        }
         logger.info("#" + session + " Veil ON.");
     });
 
     socket.on('session play', (msg) => {
-        socket.broadcast.to(session).emit('veil-off', msg);
         const currentSession = sessions.select(session);
-        if(currentSession) currentSession.setAttribute("isPlaying", true);
+        if (currentSession) {
+            currentSession.setTakeoverState(false, 127);
+            emitTakeoverState(currentSession, session);
+        }
+
+        socket.broadcast.to(session).emit('veil-off', msg);
+        if(currentSession) {
+            currentSession.setAttribute("isPlaying", true);
+            tryPromoteQueuedUsers(session, currentSession);
+            emitSessionMode(currentSession, session);
+        }
         logger.info("#" + session + " Veil OFF.");
     });
 
@@ -582,12 +721,26 @@ io.on('connection', (socket) => {
                 return;
             }
 
+            if (currentSession.isTakeoverEnabled()) {
+                const position = currentSession.isUserQueued(socket.id)
+                    ? currentSession.getQueuePosition(socket.id)
+                    : currentSession.enqueueWaitingUser(socket.id, currentSession.getParticipantInitials(socket.id) || initials || 'GUEST');
+
+                io.to(msg.socketID).emit('queue-status', {
+                    position,
+                    total: currentSession.getWaitingQueueLength(),
+                    takeover: true,
+                    message: buildTakeoverQueueMessage()
+                });
+                return;
+            }
+
             if (currentSession.isUserQueued(socket.id)) {
                 const position = currentSession.getQueuePosition(socket.id);
                 io.to(msg.socketID).emit('queue-status', {
                     position,
                     total: currentSession.getWaitingQueueLength(),
-                    message: `No pedals available right now. You are #${position} in line.`
+                    message: buildStandardQueueMessage(position)
                 });
                 return;
             }
@@ -618,6 +771,10 @@ io.on('connection', (socket) => {
             }
 
             syncDeviceAssignmentFromTrackMessage(currentSession, msg);
+            const updatedAssignment = trackNumber >= 0 ? currentSession.getDeviceForTrack(trackNumber) : null;
+            msg.deviceState = updatedAssignment
+                ? currentSession.getDeviceRuntimeState(updatedAssignment.deviceId)
+                : { controllers: {}, updatedAt: null };
             emitDeviceAssignments(session, currentSession);
         }
 
@@ -632,8 +789,61 @@ io.on('connection', (socket) => {
         if (currentSession) {
             currentSession.setConfiguredDevices(msg.devices || []);
             emitDeviceAssignments(session, currentSession);
+            emitDeviceRuntimeStateDiagnostics(currentSession);
             tryPromoteQueuedUsers(session, currentSession);
         }
+    });
+
+    socket.on('set-takeover-state', (msg) => {
+        const currentSession = sessions.select(session);
+        if (!currentSession) return;
+        if (socket.id !== currentSession.getSeqID()) return;
+
+        const enabled = Boolean(msg?.enabled);
+        const value = parseInt(msg?.value, 10);
+        const takeoverValue = Number.isFinite(value) ? value : currentSession.getTakeoverState().value;
+
+        currentSession.setTakeoverState(enabled, takeoverValue);
+
+        if (enabled) {
+            if (currentSession.getAttribute('isPlaying')) {
+                currentSession.setAttribute('isPlaying', false);
+                socket.broadcast.to(session).emit('veil-on', {
+                    socketID: socket.id,
+                    reason: 'takeover-enabled'
+                });
+            }
+
+            forceActiveParticipantsToQueue(
+                session,
+                currentSession,
+                null
+            );
+        }
+
+        emitDeviceAssignments(session, currentSession);
+        emitQueueUpdates(session, currentSession);
+        emitDeviceRuntimeStateDiagnostics(currentSession);
+        emitTakeoverState(currentSession, session);
+        emitSessionMode(currentSession, session);
+
+        if (!enabled) {
+            tryPromoteQueuedUsers(session, currentSession);
+        }
+    });
+
+    socket.on('set-takeover-value', (msg) => {
+        const currentSession = sessions.select(session);
+        if (!currentSession) return;
+        if (socket.id !== currentSession.getSeqID()) return;
+        if (!currentSession.isTakeoverEnabled()) return;
+
+        const value = parseInt(msg?.value, 10);
+        if (!Number.isFinite(value)) return;
+
+        currentSession.applyTakeoverValueToConfiguredControllers(value);
+        emitDeviceRuntimeStateDiagnostics(currentSession);
+        emitTakeoverState(currentSession, session);
     });
 
     socket.on('set-slot-duration', (msg) => {
@@ -660,6 +870,20 @@ io.on('connection', (socket) => {
         });
         logger.info(`#${session} slot duration updated to ${currentSession.getSlotDurationSec()}s`);
     });
+
+    socket.on('set-qr-base-url', (msg) => {
+        const currentSession = sessions.select(session);
+        if (!currentSession) return;
+        if (socket.id !== currentSession.getSeqID()) return;
+
+        const normalized = normalizeQrBaseUrl(msg?.baseUrl);
+        if (!normalized) return;
+
+        currentSession.setAttribute('qrBaseUrl', normalized);
+        io.to(session).emit('qr-base-url-updated', {
+            baseUrl: normalized
+        });
+    });
     
     // Track sends MIDI message to be routed by sequencer
     socket.on('track-midi-message', (msg) => {
@@ -678,6 +902,23 @@ io.on('connection', (socket) => {
         // Forward message to sequencer for routing
         const currentSession = sessions.select(session);
         if (currentSession) {
+            if (currentSession.isTakeoverEnabled()) {
+                return;
+            }
+
+            // Maintain ephemeral runtime CC state per assigned device so newly assigned
+            // users inherit the latest in-session control values.
+            if (messageType === 0xB && Array.isArray(msg.message) && msg.message.length >= 3) {
+                const trackNumber = currentSession.getParticipantNumber(socket.id);
+                if (trackNumber >= 0) {
+                    const assignment = currentSession.getDeviceForTrack(trackNumber);
+                    if (assignment && assignment.deviceId !== undefined && assignment.deviceId !== null) {
+                        currentSession.setDeviceControllerValue(assignment.deviceId, msg.message[1], msg.message[2]);
+                        emitDeviceRuntimeStateDiagnostics(currentSession);
+                    }
+                }
+            }
+
             const seqID = currentSession.getSeqID();
             if (seqID) {
                 io.to(seqID).emit('track-midi-message', {

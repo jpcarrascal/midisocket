@@ -8,6 +8,7 @@ var socket;
 var mySocketID;
 var countdownInterval = null;
 var currentSlotExpiresAt = null;
+var pendingDeviceStateControllers = null;
 
 if(session === "undefined") session = null;
 if(initials === null || initials === "undefined" || initials === "") {
@@ -231,6 +232,7 @@ if(!initials && session) { // No initials == no socket connection
             console.log("Device assignment matches my socketID:", msg);
             assignedDevice = msg.device;
             midiChannel = msg.channel;
+            pendingDeviceStateControllers = msg.deviceState && msg.deviceState.controllers ? msg.deviceState.controllers : null;
             clearQueueMessage();
             if (msg.device) {
                 hideWaitingSynth();
@@ -261,9 +263,16 @@ if(!initials && session) { // No initials == no socket connection
         assignedDevice = null;
         midiChannel = -1;
         updateDeviceInterface(null);
-        setQueueMessage(`No pedals available right now. You are ${msg.position}/${msg.total} in line. Play with this synth in the meantime:`);
+        const fallbackMessage = `No pedals available right now. You are #${msg.position} in line.`;
+        const message = (msg && typeof msg.message === 'string' && msg.message.trim().length > 0)
+            ? msg.message
+            : fallbackMessage;
+        setQueueMessage(`${message} Play with this synth in the meantime:`);
         trackInfoElement.textContent = 'Track Controller';
         showWaitingSynth();
+        if (msg && msg.takeover) {
+            document.getElementById("veil").style.display = "none";
+        }
     });
 
     socket.on('slot-expired', function(msg) {
@@ -378,6 +387,7 @@ function updateDeviceInterface(device) {
             deviceImageElement.removeAttribute('src');
         }
         clearDynamicControllerContent();
+        pendingDeviceStateControllers = null;
         // Reset to default background
         document.body.style.backgroundColor = '#1a1a1a';
         document.body.style.color = '#ffffff';
@@ -424,6 +434,27 @@ function updateDeviceInterface(device) {
         console.log("device.controllers:", device.controllers);
         generateGenericControllers();
     }
+
+    applyPendingDeviceStateToControllers();
+}
+
+function applyPendingDeviceStateToControllers() {
+    if (!pendingDeviceStateControllers || typeof pendingDeviceStateControllers !== 'object') {
+        return;
+    }
+
+    Object.entries(pendingDeviceStateControllers).forEach(([key, rawValue]) => {
+        if (!key || !key.startsWith('cc:')) return;
+        const ccNumber = parseInt(key.split(':')[1], 10);
+        const controller = currentControllers[ccNumber];
+        if (!controller || !controller.setValue) return;
+
+        const value = parseInt(rawValue, 10);
+        if (!Number.isFinite(value)) return;
+        controller.setValue(value);
+    });
+
+    pendingDeviceStateControllers = null;
 }
 
 /**
@@ -624,6 +655,7 @@ function createDiscreteController(group, name, ccNumber, valueRange) {
     buttonContainer.className = 'discrete-buttons';
     
     let activeButton = null;
+    let suppressEmit = false;
     
     // Create a button for each discrete option
     options.forEach((option, index) => {
@@ -647,17 +679,21 @@ function createDiscreteController(group, name, ccNumber, valueRange) {
             // Send MIDI CC message with the option's value
             const midiValue = option.midValue;
             console.log(`Discrete controller ${name} (CC${ccNumber}): ${option.label} = ${midiValue}`);
-            
-            // Send MIDI CC message using the same function as sliders
-            sendControlChange(ccNumber, midiValue);
-            showMidiActivity(`CC${ccNumber}: ${option.label} (${midiValue})`);
+
+            if (!suppressEmit) {
+                // Send MIDI CC message using the same function as sliders
+                sendControlChange(ccNumber, midiValue);
+                showMidiActivity(`CC${ccNumber}: ${option.label} (${midiValue})`);
+            }
         });
         
         buttonContainer.appendChild(button);
         
         // Set first option as default
         if (index === 0) {
+            suppressEmit = true;
             button.click();
+            suppressEmit = false;
         }
     });
     
@@ -665,6 +701,28 @@ function createDiscreteController(group, name, ccNumber, valueRange) {
     container.appendChild(label);
     container.appendChild(buttonContainer);
     group.appendChild(container);
+
+    currentControllers[ccNumber] = {
+        type: 'discrete',
+        setValue: function(nextValue) {
+            let closest = options[0];
+            const parsed = parseInt(nextValue, 10);
+            if (Number.isFinite(parsed)) {
+                options.forEach((opt) => {
+                    if (Math.abs(opt.midValue - parsed) < Math.abs(closest.midValue - parsed)) {
+                        closest = opt;
+                    }
+                });
+            }
+
+            const targetButton = Array.from(buttonContainer.children).find((btn) => btn.textContent === closest.label);
+            if (targetButton) {
+                suppressEmit = true;
+                targetButton.click();
+                suppressEmit = false;
+            }
+        }
+    };
 }
 
 function parseDiscreteRange(rangeString) {
@@ -749,7 +807,17 @@ function createSlider(parent, name, ccNumber, defaultValue, maxValue = 127, minV
     container.appendChild(slider);
     parent.appendChild(container);
     
-    currentControllers[ccNumber] = slider;
+    currentControllers[ccNumber] = {
+        type: 'continuous',
+        element: slider,
+        setValue: function(nextValue) {
+            const parsed = parseInt(nextValue, 10);
+            if (!Number.isFinite(parsed)) return;
+            const clamped = Math.min(maxValue, Math.max(minValue, parsed));
+            slider.value = clamped;
+            valueSpan.textContent = clamped;
+        }
+    };
 }
 
 function createButtonGrid(parent, buttons) {

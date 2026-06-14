@@ -31,16 +31,17 @@
 
       <div id="session-controls">
         <div id="session-buttons">
-          <button id="play-button" class="control-btn" title="Start session for all tracks">
-            ▶️ Start Session
+          <button id="pause-button" class="control-btn mode-btn" title="Set session mode to Pause">
+            Pause
           </button>
-          <button id="pause-button" class="control-btn" title="Pause session for all tracks">
-            ⏸️ Pause Session
+          <button id="play-button" class="control-btn mode-btn" title="Set session mode to Play">
+            Play
           </button>
-          <button id="panic-all" class="control-btn danger" title="Send panic (all notes off) to all devices">
-            🛑 Panic All
+          <button id="takeover-button" class="control-btn mode-btn" title="Set session mode to Takeover">
+            Takeover
           </button>
         </div>
+
         <div id="slot-timer-controls">
           <label for="slot-duration" id="slot-duration-label">Track Slot Time</label>
           <input id="slot-duration" type="text" value="01:00" maxlength="5" placeholder="MM:SS" title="Set active time per track (MM:SS)">
@@ -48,19 +49,32 @@
             ⏱️ Apply
           </button>
         </div>
-      </div>
-      
-      <div id="view-controls">
-        <div id="view-buttons">
-          <button id="device-config-toggle" class="control-btn" title="Configure MIDI devices">
-            ⚙️ Device Config
-          </button>
-          <button id="info-toggle" class="control-btn" title="Show/hide device information">
-            ℹ️ Interface Info
-          </button>
-          <button id="stats-toggle" class="control-btn" title="Show/hide routing statistics">
-            📊 Statistics
-          </button>
+
+        <div class="takeover-controls">
+          <div class="takeover-row">
+            <label for="takeover-fader">Master Fader</label>
+            <input type="range" id="takeover-fader" min="0" max="127" step="1" value="127" disabled>
+            <span id="takeover-value">127</span>
+          </div>
+          <div id="takeover-hint" class="takeover-hint">Pause the session to enable Takeover.</div>
+        </div>
+
+        <button id="panic-all" class="control-btn danger" title="Send panic (all notes off) to all devices">
+          🛑 Panic All
+        </button>
+
+        <div id="view-controls">
+          <div id="view-buttons">
+            <button id="device-config-toggle" class="control-btn" title="Configure MIDI devices">
+              ⚙️ Device Config
+            </button>
+            <button id="info-toggle" class="control-btn" title="Show/hide device information">
+              ℹ️ Interface Info
+            </button>
+            <button id="stats-toggle" class="control-btn" title="Show/hide routing statistics">
+              📊 Statistics
+            </button>
+          </div>
         </div>
       </div>
 
@@ -98,7 +112,6 @@
         </table>
         
         <div id="no-configured-devices" class="empty-state">
-          <h4>No devices configured</h4>
           <p>Add devices from the database to configure their MIDI interface and channel assignments.</p>
         </div>
       </div>
@@ -139,6 +152,13 @@
           <label>Routing Errors:</label>
           <span id="stat-routing-errors">0</span>
         </div>
+
+        <div class="runtime-diagnostics">
+          <h4>Device Runtime State (CC)</h4>
+          <div id="runtime-states-empty" class="runtime-empty">No runtime controller state yet.</div>
+          <div id="runtime-states-list" class="runtime-list"></div>
+        </div>
+
       </div>
     </div>
 
@@ -176,6 +196,12 @@
           <code id="track-url">Loading...</code>
           <button id="copy-url" title="Copy URL to clipboard">📋</button>
           <button id="qr-url" title="Show QR code">QR</button>
+        </div>
+        <div id="qr-base-url-controls">
+          <label for="qr-base-url-input">QR Base URL:</label>
+          <input id="qr-base-url-input" type="text" placeholder="https://your-host.example" autocomplete="off">
+          <button id="qr-base-url-apply" title="Apply QR Base URL">Apply</button>
+          <button id="qr-base-url-reset" title="Reset QR Base URL to the current host">Reset</button>
         </div>
       </div>
     </div>
@@ -258,6 +284,7 @@
     <script src="scripts/routingMatrix.js"></script>
     <script src="scripts/midiRouting.js"></script>
     <script src="scripts/deviceConfiguration.js"></script>
+    <script src="/node_modules/qrcode/build/qrcode.min.js"></script>
     <script src="scripts/sequencer.js"></script>
   </body>
 </html>

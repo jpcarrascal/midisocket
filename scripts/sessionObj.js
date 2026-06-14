@@ -89,6 +89,8 @@ class Session {
         this.attributes = Object();
         this.deviceAssignments = new Map(); // Maps trackNumber -> {deviceId, deviceName, userInitials}
         this.configuredDevices = []; // List of devices configured in sequencer
+        this.deviceRuntimeStates = new Map(); // Maps deviceId -> { controllers: {"cc:<num>": value}, updatedAt }
+        this.takeover = { enabled: false, value: 0 };
         this.waitingQueue = []; // FIFO queue of waiting sockets: [{socketID, initials, queuedAt}]
         this.slotDurationSec = 60; // Default active slot length (MM:SS => 01:00)
         this.trackSlots = new Map(); // Maps trackNumber -> {socketID, expiresAt}
@@ -167,6 +169,8 @@ class Session {
             this.sequencer.clearTrackInitials(i);
         }
         this.deviceAssignments.clear();
+        this.deviceRuntimeStates.clear();
+        this.takeover = { enabled: false, value: 0 };
         this.trackSlots.clear();
         this.waitingQueue = [];
     }
@@ -396,6 +400,13 @@ class Session {
                 this.deviceAssignments.delete(track);
             }
         }
+
+        // Drop runtime state for devices no longer configured.
+        for (const deviceId of this.deviceRuntimeStates.keys()) {
+            if (!validIds.has(deviceId)) {
+                this.deviceRuntimeStates.delete(deviceId);
+            }
+        }
     }
 
     getConfiguredDevices() {
@@ -418,6 +429,110 @@ class Session {
         
         const randomIndex = Math.floor(Math.random() * available.length);
         return available[randomIndex];
+    }
+
+    setDeviceControllerValue(deviceId, ccNumber, value) {
+        if (deviceId === null || deviceId === undefined) return;
+
+        const parsedCC = parseInt(ccNumber, 10);
+        const parsedValue = parseInt(value, 10);
+        if (!Number.isFinite(parsedCC) || !Number.isFinite(parsedValue)) {
+            return;
+        }
+
+        const clampedValue = Math.min(127, Math.max(0, parsedValue));
+        const key = `cc:${parsedCC}`;
+
+        if (!this.deviceRuntimeStates.has(deviceId)) {
+            this.deviceRuntimeStates.set(deviceId, {
+                controllers: {},
+                updatedAt: Date.now()
+            });
+        }
+
+        const existing = this.deviceRuntimeStates.get(deviceId);
+        existing.controllers[key] = clampedValue;
+        existing.updatedAt = Date.now();
+    }
+
+    getDeviceRuntimeState(deviceId) {
+        const state = this.deviceRuntimeStates.get(deviceId);
+        if (!state) {
+            return { controllers: {}, updatedAt: null };
+        }
+
+        return {
+            controllers: { ...state.controllers },
+            updatedAt: state.updatedAt || null
+        };
+    }
+
+    getAllDeviceRuntimeStates() {
+        const snapshot = {};
+        for (const [deviceId, state] of this.deviceRuntimeStates.entries()) {
+            snapshot[deviceId] = {
+                controllers: { ...(state.controllers || {}) },
+                updatedAt: state.updatedAt || null
+            };
+        }
+        return snapshot;
+    }
+
+    clearDeviceRuntimeState(deviceId) {
+        this.deviceRuntimeStates.delete(deviceId);
+    }
+
+    setTakeoverState(enabled, value = 0) {
+        this.takeover.enabled = Boolean(enabled);
+        this.takeover.value = Math.min(127, Math.max(0, parseInt(value, 10) || 0));
+    }
+
+    setTakeoverValue(value) {
+        this.takeover.value = Math.min(127, Math.max(0, parseInt(value, 10) || 0));
+    }
+
+    isTakeoverEnabled() {
+        return Boolean(this.takeover.enabled);
+    }
+
+    getTakeoverState() {
+        return {
+            enabled: Boolean(this.takeover.enabled),
+            value: parseInt(this.takeover.value, 10) || 0
+        };
+    }
+
+    getActiveParticipantsSnapshot() {
+        const active = [];
+        for (let trackNumber = 0; trackNumber < this.participants.length; trackNumber++) {
+            const participant = this.participants[trackNumber];
+            if (participant && participant.socketID) {
+                active.push({
+                    trackNumber,
+                    socketID: participant.socketID,
+                    initials: participant.initials
+                });
+            }
+        }
+        return active;
+    }
+
+    applyTakeoverValueToConfiguredControllers(value) {
+        const takeoverValue = Math.min(127, Math.max(0, parseInt(value, 10) || 0));
+
+        (this.configuredDevices || []).forEach((device) => {
+            const controllers = Array.isArray(device.controllers) ? device.controllers : [];
+            controllers.forEach((controller) => {
+                const ccNumber = parseInt(
+                    controller?.ccNumber !== undefined ? controller.ccNumber : controller?.cc_number,
+                    10
+                );
+                if (!Number.isFinite(ccNumber)) return;
+                this.setDeviceControllerValue(device.id, ccNumber, takeoverValue);
+            });
+        });
+
+        this.setTakeoverValue(takeoverValue);
     }
 }
 

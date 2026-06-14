@@ -37,12 +37,6 @@ html {
 }
 
 /* Session info within controls */
-#session-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
 #session-info {
     display: flex;
     gap: 20px;
@@ -92,10 +86,85 @@ html {
     color: #276749 !important;
 }
 
-#session-buttons, #view-buttons {
+#controls {
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    width: auto !important;
+    height: auto !important;
+    z-index: auto !important;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    background: rgba(45, 45, 45, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    padding: 15px 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+#session-controls,
+#view-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#session-controls {
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    background: rgba(20, 24, 31, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 12px 14px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+#view-controls {
+    flex: 0 0 auto;
+    align-self: flex-start;
+    margin-left: auto;
+}
+
+#session-buttons,
+#view-buttons {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
+}
+
+#session-buttons {
+    flex-wrap: nowrap;
+}
+
+#view-buttons {
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+}
+
+.mode-btn {
+    min-width: 88px;
+    justify-content: center;
+}
+
+.mode-btn.mode-active {
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35), 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.mode-btn.mode-active-play {
+    background: linear-gradient(135deg, #38a169, #2f855a);
+}
+
+.mode-btn.mode-active-takeover {
+    background: linear-gradient(135deg, #d69e2e, #b7791f);
+    color: #1a202c;
 }
 
 #slot-timer-controls {
@@ -103,6 +172,8 @@ html {
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+    flex-basis: 100%;
+    order: 2;
 }
 
 #slot-duration-label {
@@ -128,33 +199,38 @@ html {
     border-color: #a0aec0;
 }
 
-/* Control Panel - Override old sequencer.css fixed positioning */
-#controls {
-    position: static !important;
-    top: auto !important;
-    left: auto !important;
-    width: auto !important;
-    height: auto !important;
-    z-index: auto !important;
-    
+.takeover-controls {
     display: flex;
-    justify-content: space-between;
+    flex-direction: row;
     align-items: center;
-    background: rgba(45, 45, 45, 0.95);
-    backdrop-filter: blur(10px);
-    border-radius: 12px;
-    padding: 15px 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-    flex-wrap: wrap;
-    gap: 15px;
+    gap: 8px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    min-width: 320px;
 }
 
-#session-controls,
-#view-controls {
+.takeover-row {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+}
+
+.takeover-row label {
+    font-size: 12px;
+    color: #edf2f7;
+    min-width: 92px;
+    white-space: nowrap;
+}
+
+.takeover-controls #takeover-fader {
+    flex: 1 1 220px;
+    min-width: 180px;
+}
+
+.takeover-hint {
+    display: none;
 }
 
 .control-btn {
@@ -323,16 +399,40 @@ html {
     font-size: 12px;
     font-weight: 500;
     color: #718096;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px;
+    background: #f8fafc;
 }
 
-.stat-item span {
-    display: block;
-    font-size: 24px;
-    font-weight: 700;
+.runtime-device-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 600;
     color: #2d3748;
+    margin-bottom: 6px;
+}
+
+.runtime-device-updated {
+    font-size: 11px;
+    font-weight: 400;
+    color: #718096;
+}
+
+.runtime-controller-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 3px;
+}
+
+.runtime-controller-item {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 11px;
+    color: #4a5568;
 }
 
 /* Routing Matrix */
@@ -590,6 +690,55 @@ html {
 
 #copy-url:hover,
 #qr-url:hover {
+    background: #666666;
+}
+
+#qr-base-url-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+#qr-base-url-controls label {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+#qr-base-url-input {
+    min-width: 320px;
+    max-width: 520px;
+    width: min(70vw, 520px);
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.32);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.95);
+    color: #2d3748;
+    font-size: 12px;
+}
+
+#qr-base-url-input:focus {
+    outline: none;
+    border-color: #90cdf4;
+    box-shadow: 0 0 0 1px rgba(144, 205, 244, 0.45);
+}
+
+#qr-base-url-apply,
+#qr-base-url-reset {
+    background: #888888;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+#qr-base-url-apply:hover,
+#qr-base-url-reset:hover {
     background: #666666;
 }
 

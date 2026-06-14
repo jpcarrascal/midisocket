@@ -13,8 +13,14 @@ let app = {
     
     // Session info
     sessionName: null,
+    qrBaseUrl: window.location.origin,
     isPlaying: false,
+    sessionMode: 'pause',
     deviceAssignments: {}, // Maps trackNumber -> {deviceId, deviceName, userInitials}
+    deviceRuntimeStates: {},
+    takeover: {
+        value: 127
+    },
     slotDurationSec: 60,
     
     // UI elements
@@ -24,6 +30,8 @@ let app = {
     lastStatsUpdate: 0,
     statsUpdateInterval: 1000 // Update every second
 };
+
+const QR_BASE_URL_STORAGE_KEY = 'midisocket.qrBaseUrl.v1';
 
 // Global device configuration instance
 let deviceConfig = null;
@@ -49,12 +57,119 @@ function syncConfiguredDevicesToServer() {
     console.log('Sent configured devices to server:', configuredDevices.length);
 }
 
+function normalizeQrBaseUrl(rawValue) {
+    const fallback = window.location.origin;
+    const value = `${rawValue || ''}`.trim();
+    if (!value) {
+        return fallback;
+    }
+
+    const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+
+    let parsed;
+    try {
+        parsed = new URL(withProtocol);
+    } catch (error) {
+        return null;
+    }
+
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return null;
+    }
+
+    const sanitizedPath = parsed.pathname && parsed.pathname !== '/'
+        ? parsed.pathname.replace(/\/+$/, '')
+        : '';
+
+    return `${parsed.origin}${sanitizedPath}`;
+}
+
+function buildTrackUrlFromBase(baseUrl) {
+    const sanitizedBase = normalizeQrBaseUrl(baseUrl) || window.location.origin;
+    const trackPath = `${sanitizedBase}/track`;
+
+    if (!app.sessionName) {
+        return trackPath;
+    }
+
+    return `${trackPath}?session=${encodeURIComponent(app.sessionName)}`;
+}
+
+function loadQrBaseUrlFromStorage() {
+    let storedValue = '';
+    try {
+        storedValue = window.localStorage.getItem(QR_BASE_URL_STORAGE_KEY) || '';
+    } catch (error) {
+        storedValue = '';
+    }
+
+    app.qrBaseUrl = normalizeQrBaseUrl(storedValue) || window.location.origin;
+}
+
+function saveQrBaseUrlToStorage(baseUrl) {
+    try {
+        window.localStorage.setItem(QR_BASE_URL_STORAGE_KEY, baseUrl);
+    } catch (error) {
+        // Ignore storage failures.
+    }
+}
+
+function emitQrBaseUrlToServer() {
+    if (!app.socket || !app.socket.connected) {
+        return;
+    }
+
+    app.socket.emit('set-qr-base-url', {
+        baseUrl: app.qrBaseUrl
+    });
+}
+
+function applyQrBaseUrlFromInput() {
+    const rawInput = app.elements.qrBaseUrlInput ? app.elements.qrBaseUrlInput.value : '';
+    const normalized = normalizeQrBaseUrl(rawInput);
+    if (!normalized) {
+        showError('QR Base URL must be a valid http(s) URL.');
+        if (app.elements.qrBaseUrlInput) {
+            app.elements.qrBaseUrlInput.value = app.qrBaseUrl;
+        }
+        return;
+    }
+
+    app.qrBaseUrl = normalized;
+    if (app.elements.qrBaseUrlInput) {
+        app.elements.qrBaseUrlInput.value = app.qrBaseUrl;
+    }
+
+    saveQrBaseUrlToStorage(app.qrBaseUrl);
+    updateTrackUrl();
+    emitQrBaseUrlToServer();
+    showInfo('QR Base URL updated.');
+}
+
+function resetQrBaseUrlToDefault() {
+    app.qrBaseUrl = window.location.origin;
+
+    if (app.elements.qrBaseUrlInput) {
+        app.elements.qrBaseUrlInput.value = app.qrBaseUrl;
+    }
+
+    saveQrBaseUrlToStorage(app.qrBaseUrl);
+    updateTrackUrl();
+    emitQrBaseUrlToServer();
+    showInfo('QR Base URL reset to the current host.');
+}
+
 // Initialize application when page loads
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('Initializing MIDI Routing Sequencer...');
     
     // Get DOM elements
     initializeElements();
+    loadQrBaseUrlFromStorage();
+
+    if (app.elements.qrBaseUrlInput) {
+        app.elements.qrBaseUrlInput.value = app.qrBaseUrl;
+    }
     
     // Debug: Check initial panel states
     console.log('Device config panel hidden?', document.getElementById('device-config-panel')?.classList.contains('hidden'));
@@ -96,6 +211,7 @@ function initializeElements() {
         // Controls
         playButton: document.getElementById('play-button'),
         pauseButton: document.getElementById('pause-button'),
+        takeoverButton: document.getElementById('takeover-button'),
         panicAllButton: document.getElementById('panic-all'),
         slotDurationInput: document.getElementById('slot-duration'),
         slotDurationApplyButton: document.getElementById('slot-duration-apply'),
@@ -116,12 +232,20 @@ function initializeElements() {
         trackUrl: document.getElementById('track-url'),
         copyUrlButton: document.getElementById('copy-url'),
         qrUrlButton: document.getElementById('qr-url'),
+        qrBaseUrlInput: document.getElementById('qr-base-url-input'),
+        qrBaseUrlApplyButton: document.getElementById('qr-base-url-apply'),
+        qrBaseUrlResetButton: document.getElementById('qr-base-url-reset'),
         
         // Statistics
         statActiveTracks: document.getElementById('stat-active-tracks'),
         statRoutedTracks: document.getElementById('stat-routed-tracks'),
         statMessagesRouted: document.getElementById('stat-messages-routed'),
         statRoutingErrors: document.getElementById('stat-routing-errors'),
+        runtimeStatesEmpty: document.getElementById('runtime-states-empty'),
+        runtimeStatesList: document.getElementById('runtime-states-list'),
+        takeoverFader: document.getElementById('takeover-fader'),
+        takeoverValue: document.getElementById('takeover-value'),
+        takeoverHint: document.getElementById('takeover-hint'),
         
         // Messages
         errorMessage: document.getElementById('error-message'),
@@ -215,7 +339,11 @@ function initializeSocket() {
     app.socket.on('track-midi-message', onTrackMidiMessage);
     app.socket.on('get-track-assignment', onGetTrackAssignment);
     app.socket.on('device-assignments-updated', onDeviceAssignmentsUpdated);
+    app.socket.on('device-runtime-state-updated', onDeviceRuntimeStateUpdated);
     app.socket.on('queue-updated', onQueueUpdated);
+    app.socket.on('session-mode-updated', onSessionModeUpdated);
+    app.socket.on('takeover-state-updated', onTakeoverStateUpdated);
+    app.socket.on('takeover-error', onTakeoverError);
     app.socket.on('slot-duration-updated', onSlotDurationUpdated);
     app.socket.on('sequencer exists', onSequencerExists);
     app.socket.on('error', onSocketError);
@@ -230,9 +358,12 @@ function updateSessionStatus() {
     let statusLabel = 'Not Ready';
 
     if (isConnected) {
-        if (app.isPlaying) {
+        if (app.sessionMode === 'play') {
             statusClass = 'session-status-running';
             statusLabel = 'Running';
+        } else if (app.sessionMode === 'takeover') {
+            statusClass = 'session-status-ready';
+            statusLabel = 'Takeover';
         } else {
             statusClass = 'session-status-ready';
             statusLabel = 'Ready';
@@ -241,13 +372,29 @@ function updateSessionStatus() {
 
     app.elements.sessionStatus.innerHTML = `Status: <strong class="session-status-badge ${statusClass}">${statusLabel}</strong>`;
 
-    if (app.elements.playButton) {
-        app.elements.playButton.disabled = isConnected && app.isPlaying;
-    }
+    const buttons = [app.elements.pauseButton, app.elements.playButton, app.elements.takeoverButton];
+    buttons.forEach((button) => {
+        if (button) button.disabled = !isConnected;
+    });
 
     if (app.elements.pauseButton) {
-        app.elements.pauseButton.disabled = !isConnected || !app.isPlaying;
+        app.elements.pauseButton.classList.toggle('mode-active', app.sessionMode === 'pause');
+        app.elements.pauseButton.classList.remove('mode-active-play', 'mode-active-takeover');
     }
+
+    if (app.elements.playButton) {
+        app.elements.playButton.classList.toggle('mode-active', app.sessionMode === 'play');
+        app.elements.playButton.classList.toggle('mode-active-play', app.sessionMode === 'play');
+        app.elements.playButton.classList.remove('mode-active-takeover');
+    }
+
+    if (app.elements.takeoverButton) {
+        app.elements.takeoverButton.classList.toggle('mode-active', app.sessionMode === 'takeover');
+        app.elements.takeoverButton.classList.toggle('mode-active-takeover', app.sessionMode === 'takeover');
+        app.elements.takeoverButton.classList.remove('mode-active-play');
+    }
+
+    updateTakeoverControls();
 }
 
 /**
@@ -255,8 +402,9 @@ function updateSessionStatus() {
  */
 function setupEventListeners() {
     // Session controls
-    app.elements.playButton.addEventListener('click', onPlaySession);
-    app.elements.pauseButton.addEventListener('click', onPauseSession);
+    app.elements.playButton.addEventListener('click', () => setSessionMode('play'));
+    app.elements.pauseButton.addEventListener('click', () => setSessionMode('pause'));
+    app.elements.takeoverButton.addEventListener('click', () => setSessionMode('takeover'));
     app.elements.panicAllButton.addEventListener('click', onPanicAll);
     app.elements.slotDurationApplyButton.addEventListener('click', onApplySlotDuration);
     app.elements.slotDurationInput.addEventListener('keydown', (e) => {
@@ -284,6 +432,28 @@ function setupEventListeners() {
     
     // QR URL button
     app.elements.qrUrlButton.addEventListener('click', onShowQrCode);
+
+    if (app.elements.qrBaseUrlApplyButton) {
+        app.elements.qrBaseUrlApplyButton.addEventListener('click', applyQrBaseUrlFromInput);
+    }
+
+    if (app.elements.qrBaseUrlInput) {
+        app.elements.qrBaseUrlInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                applyQrBaseUrlFromInput();
+            }
+        });
+    }
+
+        if (app.elements.qrBaseUrlResetButton) {
+            app.elements.qrBaseUrlResetButton.addEventListener('click', resetQrBaseUrlToDefault);
+        }
+
+    if (app.elements.takeoverFader) {
+        app.elements.takeoverFader.value = '127';
+        app.elements.takeoverFader.addEventListener('input', onTakeoverFaderInput);
+    }
     
     // ESC key handler for QR modal
     document.addEventListener('keydown', (e) => {
@@ -362,10 +532,12 @@ function onSocketConnect() {
 
     // Send current devices to server for auto-assignment
     syncConfiguredDevicesToServer();
+    emitQrBaseUrlToServer();
 }
 
 function onSocketDisconnect() {
     console.log('Socket disconnected');
+    app.sessionMode = 'pause';
     app.isPlaying = false;
     updateSessionStatus();
     showError('Disconnected from server');
@@ -553,6 +725,12 @@ function onDeviceAssignmentsUpdated(data) {
     }
 
     updateRoutingMatrix();
+    renderRuntimeStateDiagnostics();
+}
+
+function onDeviceRuntimeStateUpdated(data) {
+    app.deviceRuntimeStates = data?.deviceStates || {};
+    renderRuntimeStateDiagnostics();
 }
 
 function onQueueUpdated(data) {
@@ -571,6 +749,30 @@ function onQueueUpdated(data) {
     if (app.elements.nextInQueue) {
         app.elements.nextInQueue.innerHTML = `Next: <strong>${nextInitials}</strong>`;
     }
+}
+
+function onTakeoverStateUpdated(data) {
+    const takeover = data?.takeover || {};
+    const value = clampMidiValue(takeover.value);
+
+    app.takeover.value = value;
+
+    updateTakeoverControls();
+}
+
+function onSessionModeUpdated(data) {
+    const incomingMode = data?.mode;
+    if (incomingMode === 'play' || incomingMode === 'pause' || incomingMode === 'takeover') {
+        app.sessionMode = incomingMode;
+        app.isPlaying = incomingMode === 'play';
+    }
+
+    updateSessionStatus();
+}
+
+function onTakeoverError(data) {
+    showError(data?.reason || 'Unable to apply Takeover change.');
+    updateTakeoverControls();
 }
 
 // ===== MIDI EVENT HANDLERS =====
@@ -676,37 +878,127 @@ function onRoutingChange(trackId, routing) {
 
 // ===== UI EVENT HANDLERS =====
 
-function onPlaySession() {
+function setSessionMode(mode) {
     if (!app.socket?.connected) {
+        app.sessionMode = 'pause';
         app.isPlaying = false;
         updateSessionStatus();
-        showError('Session is not ready. Reconnect to the backend before starting.');
+        showError('Session is not ready. Reconnect to the backend before changing mode.');
         return;
     }
 
-    app.isPlaying = true;
+    if (mode !== 'takeover') {
+        app.takeover.value = 127;
+    }
+
+    app.sessionMode = mode;
+    app.isPlaying = mode === 'play';
     updateSessionStatus();
+    updateTakeoverControls();
+
+    if (mode === 'play') {
+        app.socket.emit('session play', { socketID: app.socket.id });
+        showInfo('Session mode: Play');
+        return;
+    }
+
+    if (mode === 'pause') {
+        app.socket.emit('session pause', { socketID: app.socket.id });
+        showInfo('Session mode: Pause');
+        return;
+    }
+
+    const value = clampMidiValue(app.elements.takeoverFader?.value ?? app.takeover.value);
+    app.takeover.value = value;
+    app.socket.emit('set-takeover-state', {
+        enabled: true,
+        value
+    });
+    showInfo('Session mode: Takeover');
+}
     
-    // Emit session play event
-    app.socket.emit('session play', { socketID: app.socket.id });
-    
-    showInfo('Session started - tracks can now play');
+function onTakeoverFaderInput(event) {
+    const value = clampMidiValue(event?.target?.value);
+
+    if (app.elements.takeoverValue) {
+        app.elements.takeoverValue.textContent = String(value);
+    }
+
+    app.takeover.value = value;
+
+    if (app.sessionMode !== 'takeover') {
+        return;
+    }
+
+    applyTakeoverValueToConfiguredOutputs(value);
+
+    if (app.socket?.connected) {
+        app.socket.emit('set-takeover-value', { value });
+    }
 }
 
-function onPauseSession() {
-    if (!app.socket?.connected) {
-        app.isPlaying = false;
-        updateSessionStatus();
-        return;
+function updateTakeoverControls() {
+    const fader = app.elements.takeoverFader;
+    const valueLabel = app.elements.takeoverValue;
+    const hint = app.elements.takeoverHint;
+    const isConnected = Boolean(app.socket?.connected);
+
+    if (fader) {
+        fader.value = String(clampMidiValue(app.takeover.value));
+        fader.disabled = !isConnected || app.sessionMode !== 'takeover';
     }
 
-    app.isPlaying = false;
-    updateSessionStatus();
-    
-    // Emit session pause event
-    app.socket.emit('session pause', { socketID: app.socket.id });
-    
-    showInfo('Session paused - tracks are now muted');
+    if (valueLabel) {
+        valueLabel.textContent = String(clampMidiValue(app.takeover.value));
+    }
+
+    if (hint) {
+        if (!isConnected) {
+            hint.textContent = 'Connect sequencer to use Takeover.';
+        } else if (app.sessionMode === 'takeover') {
+            hint.textContent = 'Takeover active. All users are queued until mode changes.';
+        } else {
+            hint.textContent = 'Ready. Enable Takeover to control all configured controllers.';
+        }
+    }
+}
+
+function clampMidiValue(value) {
+    const parsed = parseInt(value, 10);
+    if (!Number.isFinite(parsed)) return 0;
+    return Math.max(0, Math.min(127, parsed));
+}
+
+function applyTakeoverValueToConfiguredOutputs(value) {
+    if (!app.midiDeviceManager || !deviceConfig) return;
+
+    const midiValue = clampMidiValue(value);
+    const configuredDevices = deviceConfig.getConfiguredDevices() || [];
+
+    configuredDevices.forEach((device) => {
+        if (!device || !device.assignedInterface) return;
+
+        const targetChannel = Number.isFinite(parseInt(device.assignedChannel, 10))
+            ? Math.max(0, Math.min(15, parseInt(device.assignedChannel, 10) - 1))
+            : 0;
+
+        const controllers = Array.isArray(device.controllers) ? device.controllers : [];
+        controllers.forEach((controller) => {
+            const ccNumber = parseInt(
+                controller?.ccNumber !== undefined ? controller.ccNumber : controller?.cc_number,
+                10
+            );
+            if (!Number.isFinite(ccNumber)) return;
+
+            const message = new Uint8Array([0xB0, ccNumber, midiValue]);
+            app.midiDeviceManager.sendMidiMessageToChannel(
+                device.assignedInterface,
+                message,
+                targetChannel,
+                performance.now()
+            );
+        });
+    });
 }
 
 function onPanicAll() {
@@ -735,26 +1027,37 @@ function onShowQrCode() {
         showError('URL not ready yet');
         return;
     }
-    
-    // URL encode the session URL
-    const encodedUrl = encodeURIComponent(url);
-    const qrApiUrl = `https://qrcode.azurewebsites.net/qr?string=${encodedUrl}`;
-    
+
     // Show modal
     const modal = document.getElementById('qr-code-modal');
     const qrImage = document.getElementById('qr-code-image');
-    
+
+    if (!window.QRCode || typeof window.QRCode.toDataURL !== 'function') {
+        showError('QR library is not loaded');
+        return;
+    }
+
     // Set up image load handlers
     qrImage.onload = () => {
         modal.classList.remove('hidden');
     };
-    
+
     qrImage.onerror = () => {
-        showError('Failed to generate QR code');
+        showError('Failed to render QR code');
     };
-    
-    // Load the QR code
-    qrImage.src = qrApiUrl;
+
+    window.QRCode.toDataURL(url, {
+        width: 1024,
+        margin: 1,
+        errorCorrectionLevel: 'M'
+    }, (error, dataUrl) => {
+        if (error || !dataUrl) {
+            showError('Failed to generate QR code');
+            return;
+        }
+
+        qrImage.src = dataUrl;
+    });
 }
 
 function closeQrModal() {
@@ -775,8 +1078,7 @@ function updateSessionInfo() {
 }
 
 function updateTrackUrl() {
-    const baseUrl = window.location.origin;
-    const trackUrl = `${baseUrl}/track?session=${app.sessionName}`;
+    const trackUrl = buildTrackUrlFromBase(app.qrBaseUrl);
     
     if (app.elements.trackUrl) {
         app.elements.trackUrl.textContent = trackUrl;
@@ -1110,6 +1412,62 @@ function updateStatistics() {
     if (app.elements.statRoutingErrors) {
         app.elements.statRoutingErrors.textContent = stats.routingErrors;
     }
+
+    renderRuntimeStateDiagnostics();
+}
+
+function renderRuntimeStateDiagnostics() {
+    const listElement = app.elements.runtimeStatesList;
+    const emptyElement = app.elements.runtimeStatesEmpty;
+    if (!listElement || !emptyElement) return;
+
+    const states = app.deviceRuntimeStates || {};
+    const entries = Object.entries(states)
+        .filter(([, state]) => state && state.controllers && Object.keys(state.controllers).length > 0)
+        .sort((a, b) => parseInt(a[0], 10) - parseInt(b[0], 10));
+
+    if (entries.length === 0) {
+        listElement.innerHTML = '';
+        emptyElement.style.display = 'block';
+        return;
+    }
+
+    emptyElement.style.display = 'none';
+
+    const configuredById = new Map(
+        (deviceConfig?.getConfiguredDevices?.() || []).map(device => [String(device.id), device])
+    );
+
+    listElement.innerHTML = entries.map(([deviceId, state]) => {
+        const configured = configuredById.get(String(deviceId));
+        const name = configured?.name || `Device ${deviceId}`;
+        const updated = state.updatedAt ? new Date(state.updatedAt).toLocaleTimeString() : '--';
+        const controllerItems = Object.entries(state.controllers || {})
+            .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+            .map(([key, value]) => `<li class="runtime-controller-item">${escapeHtml(key)} = ${escapeHtml(String(value))}</li>`)
+            .join('');
+
+        return `
+            <div class="runtime-device-card">
+              <div class="runtime-device-title">
+                <span>${escapeHtml(name)}</span>
+                <span class="runtime-device-updated">Updated ${escapeHtml(updated)}</span>
+              </div>
+              <ul class="runtime-controller-list">
+                ${controllerItems}
+              </ul>
+            </div>
+        `;
+    }).join('');
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 function flashTrackActivity(trackId) {
