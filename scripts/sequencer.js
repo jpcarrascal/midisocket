@@ -1032,7 +1032,7 @@ function onShowQrCode() {
     const modal = document.getElementById('qr-code-modal');
     const qrImage = document.getElementById('qr-code-image');
 
-    if (!window.QRCode || typeof window.QRCode.toDataURL !== 'function') {
+    if (typeof window.QRCode !== 'function') {
         showError('QR library is not loaded');
         return;
     }
@@ -1046,18 +1046,39 @@ function onShowQrCode() {
         showError('Failed to render QR code');
     };
 
-    window.QRCode.toDataURL(url, {
-        width: 1024,
-        margin: 1,
-        errorCorrectionLevel: 'M'
-    }, (error, dataUrl) => {
-        if (error || !dataUrl) {
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'fixed';
+    tempContainer.style.left = '-9999px';
+    tempContainer.style.top = '-9999px';
+    document.body.appendChild(tempContainer);
+
+    try {
+        new window.QRCode(tempContainer, {
+            text: url,
+            width: 1024,
+            height: 1024,
+            correctLevel: window.QRCode.CorrectLevel.M
+        });
+    } catch (error) {
+        document.body.removeChild(tempContainer);
+        showError('Failed to generate QR code');
+        return;
+    }
+
+    window.setTimeout(() => {
+        const renderedImg = tempContainer.querySelector('img');
+        const renderedCanvas = tempContainer.querySelector('canvas');
+        const dataUrl = renderedImg?.src || (renderedCanvas && renderedCanvas.toDataURL ? renderedCanvas.toDataURL('image/png') : '');
+
+        document.body.removeChild(tempContainer);
+
+        if (!dataUrl) {
             showError('Failed to generate QR code');
             return;
         }
 
         qrImage.src = dataUrl;
-    });
+    }, 0);
 }
 
 function closeQrModal() {

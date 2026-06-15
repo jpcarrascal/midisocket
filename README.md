@@ -98,9 +98,7 @@ Share: `http://localhost:3000/track?session=yoursession`
 
 ## 📖 Documentation
 
-- **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - Complete technical overview
-- **[TESTING_GUIDE.md](TESTING_GUIDE.md)** - Testing procedures and validation
-- **[DOCS_INDEX.md](DOCS_INDEX.md)** - Full documentation index
+- **[AI_AGENT_PROJECT_CONTEXT.md](AI_AGENT_PROJECT_CONTEXT.md)** - Complete technical reference for developers and AI agents (architecture, modules, testing, future work)
 
 ## 🎯 Use Cases
 

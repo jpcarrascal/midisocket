@@ -446,26 +446,48 @@ function renderQrCodeToImage(imageElement, value, options = {}) {
         return;
     }
 
-    if (!window.QRCode || typeof window.QRCode.toDataURL !== 'function') {
+    if (typeof window.QRCode !== 'function') {
         imageElement.removeAttribute('src');
         imageElement.alt = 'QR code unavailable (local QR library not loaded)';
         return;
     }
 
-    window.QRCode.toDataURL(value, {
-        width: options.width || 512,
-        margin: options.margin !== undefined ? options.margin : 1,
-        errorCorrectionLevel: 'M'
-    }, (error, url) => {
-        if (error || !url) {
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'fixed';
+    tempContainer.style.left = '-9999px';
+    tempContainer.style.top = '-9999px';
+    document.body.appendChild(tempContainer);
+
+    try {
+        new window.QRCode(tempContainer, {
+            text: value,
+            width: options.width || 512,
+            height: options.width || 512,
+            correctLevel: window.QRCode.CorrectLevel.M
+        });
+    } catch (error) {
+        document.body.removeChild(tempContainer);
+        imageElement.removeAttribute('src');
+        imageElement.alt = 'QR code unavailable';
+        return;
+    }
+
+    window.setTimeout(() => {
+        const renderedImg = tempContainer.querySelector('img');
+        const renderedCanvas = tempContainer.querySelector('canvas');
+        const dataUrl = renderedImg?.src || (renderedCanvas && renderedCanvas.toDataURL ? renderedCanvas.toDataURL('image/png') : '');
+
+        document.body.removeChild(tempContainer);
+
+        if (!dataUrl) {
             imageElement.removeAttribute('src');
             imageElement.alt = 'QR code unavailable';
             return;
         }
 
         imageElement.alt = 'QR code for joining the session';
-        imageElement.src = url;
-    });
+        imageElement.src = dataUrl;
+    }, 0);
 }
 
 async function loadAvailableCameras() {
