@@ -788,6 +788,15 @@ io.on('connection', (socket) => {
         const currentSession = sessions.select(session);
         if (currentSession) {
             currentSession.setConfiguredDevices(msg.devices || []);
+
+            const assignments = currentSession.getDeviceAssignments();
+            Object.keys(assignments).forEach((trackNumber) => {
+                const slotInfo = currentSession.getTrackSlot(parseInt(trackNumber));
+                if (slotInfo && slotInfo.socketID) {
+                    emitTrackAssignment(session, currentSession, slotInfo.socketID, parseInt(trackNumber));
+                }
+            });
+
             emitDeviceAssignments(session, currentSession);
             emitDeviceRuntimeStateDiagnostics(currentSession);
             tryPromoteQueuedUsers(session, currentSession);

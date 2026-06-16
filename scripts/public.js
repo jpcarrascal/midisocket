@@ -11,10 +11,12 @@ const publicApp = {
         right: 0.7
     },
     splitDrag: null,
+    cameraFlipped: false,
     elements: {}
 };
 
 const SPLIT_STORAGE_KEY = 'midisocket.publicDashboard.splits.v1';
+const FLIP_STORAGE_KEY = 'midisocket.publicDashboard.cameraFlipped.v1';
 const SPLIT_CONFIG = {
     left: { defaultTop: 0.62, minTop: 0.2, maxTop: 0.8, keyboardStep: 0.02, keyboardStepLarge: 0.05 },
     right: { defaultTop: 0.7, minTop: 0.2, maxTop: 0.85, keyboardStep: 0.02, keyboardStepLarge: 0.05 }
@@ -31,6 +33,7 @@ function initializePublicDashboard() {
     cacheElements();
     loadSplitState();
     applySplitState();
+    loadCameraFlipState();
     setupSplitControls();
     publicApp.elements.sessionLabel.textContent = `Session: ${publicApp.sessionName || '--'}`;
     updateJoinQr();
@@ -52,6 +55,7 @@ function cacheElements() {
         cameraSelect: document.getElementById('camera-select'),
         startCameraButton: document.getElementById('start-camera'),
         stopCameraButton: document.getElementById('stop-camera'),
+        flipCameraButton: document.getElementById('flip-camera'),
         cameraFeed: document.getElementById('camera-feed'),
         cameraMessage: document.getElementById('camera-message')
     };
@@ -77,6 +81,7 @@ function initializeSocket() {
 function setupEventListeners() {
     publicApp.elements.startCameraButton.addEventListener('click', startCamera);
     publicApp.elements.stopCameraButton.addEventListener('click', stopCamera);
+    publicApp.elements.flipCameraButton.addEventListener('click', toggleCameraFlip);
 
     window.addEventListener('keydown', onWindowKeyDown);
 }
@@ -137,6 +142,30 @@ function saveSplitState() {
     } catch (error) {
         // Ignore storage failures.
     }
+}
+
+function loadCameraFlipState() {
+    try {
+        publicApp.cameraFlipped = window.localStorage.getItem(FLIP_STORAGE_KEY) === 'true';
+    } catch (error) {
+        publicApp.cameraFlipped = false;
+    }
+    applyCameraFlipState();
+}
+
+function applyCameraFlipState() {
+    publicApp.elements.cameraFeed.classList.toggle('flipped', publicApp.cameraFlipped);
+    publicApp.elements.flipCameraButton.textContent = publicApp.cameraFlipped ? 'Unflip' : 'Flip';
+}
+
+function toggleCameraFlip() {
+    publicApp.cameraFlipped = !publicApp.cameraFlipped;
+    try {
+        window.localStorage.setItem(FLIP_STORAGE_KEY, String(publicApp.cameraFlipped));
+    } catch (error) {
+        // Ignore storage failures.
+    }
+    applyCameraFlipState();
 }
 
 function applySplitState() {
@@ -247,24 +276,27 @@ function onWindowKeyDown(event) {
 
     if (key === 'q') {
         event.preventDefault();
-        updateSplitValue('left', publicApp.splitState.left + leftStep);
+        updateSplitValue('left', publicApp.splitState.left - leftStep);
     } else if (key === 'a') {
         event.preventDefault();
-        updateSplitValue('left', publicApp.splitState.left - leftStep);
+        updateSplitValue('left', publicApp.splitState.left + leftStep);
     } else if (key === 'w') {
         event.preventDefault();
-        updateSplitValue('right', publicApp.splitState.right + rightStep);
+        updateSplitValue('right', publicApp.splitState.right - rightStep);
     } else if (key === 's') {
         event.preventDefault();
-        updateSplitValue('right', publicApp.splitState.right - rightStep);
-    } else if (event.key === ' ') {
+        updateSplitValue('right', publicApp.splitState.right + rightStep);
+    } else if (key === '1') {
         event.preventDefault();
         if (publicApp.currentStream) {
             stopCamera();
         } else {
             startCamera();
         }
-    } else if (key === '1') {
+    } else if (key === '2') {
+        event.preventDefault();
+        toggleCameraFlip();
+    } else if (key === 'z') {
         event.preventDefault();
         publicApp.splitState.left = 0.5;
         publicApp.splitState.right = 0.5;
