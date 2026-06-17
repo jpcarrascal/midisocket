@@ -98,6 +98,15 @@
       </main>
     </div>
 
+    <div id="wifi-view" class="wifi-overlay hidden">
+      <div class="wifi-overlay-content">
+        <h2 class="wifi-title">Connect to this Wi-Fi / Connecta't a aquesta Wi-Fi</h2>
+        <img id="wifi-qr-image" alt="QR code to join WiFi network">
+        <p class="wifi-ssid">Network: <strong id="wifi-ssid-text"></strong></p>
+        <p class="wifi-password">Password: <strong id="wifi-password-text"></strong></p>
+      </div>
+    </div>
+
     <script src="https://cdn.socket.io/4.4.0/socket.io.min.js"></script>
     <script src="/node_modules/qrcodejs/qrcode.min.js"></script>
     <script src="scripts/public.js"></script>

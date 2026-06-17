@@ -12,6 +12,9 @@ const publicApp = {
     },
     splitDrag: null,
     cameraFlipped: false,
+    wifiViewActive: false,
+    wifiSsid: 'pedaleracaotica',
+    wifiPassword: 'pedaleracaotica',
     elements: {}
 };
 
@@ -29,11 +32,14 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializePublicDashboard() {
     const params = new URLSearchParams(window.location.search);
     publicApp.sessionName = params.get('session') || '';
+    publicApp.wifiSsid = params.get('wifi_ssid') || publicApp.wifiSsid;
+    publicApp.wifiPassword = params.get('wifi_password') || publicApp.wifiPassword;
 
     cacheElements();
     loadSplitState();
     applySplitState();
     loadCameraFlipState();
+    renderWifiQrCode();
     setupSplitControls();
     publicApp.elements.sessionLabel.textContent = `Session: ${publicApp.sessionName || '--'}`;
     updateJoinQr();
@@ -57,7 +63,11 @@ function cacheElements() {
         stopCameraButton: document.getElementById('stop-camera'),
         flipCameraButton: document.getElementById('flip-camera'),
         cameraFeed: document.getElementById('camera-feed'),
-        cameraMessage: document.getElementById('camera-message')
+        cameraMessage: document.getElementById('camera-message'),
+        wifiView: document.getElementById('wifi-view'),
+        wifiQrImage: document.getElementById('wifi-qr-image'),
+        wifiSsidText: document.getElementById('wifi-ssid-text'),
+        wifiPasswordText: document.getElementById('wifi-password-text')
     };
 }
 
@@ -166,6 +176,19 @@ function toggleCameraFlip() {
         // Ignore storage failures.
     }
     applyCameraFlipState();
+}
+
+function renderWifiQrCode() {
+    const ssid = publicApp.wifiSsid;
+    const password = publicApp.wifiPassword;
+    publicApp.elements.wifiSsidText.textContent = ssid;
+    publicApp.elements.wifiPasswordText.textContent = password;
+    renderQrCodeToImage(publicApp.elements.wifiQrImage, `WIFI:T:WPA;S:${ssid};P:${password};;`, { width: 512 });
+}
+
+function toggleWifiView() {
+    publicApp.wifiViewActive = !publicApp.wifiViewActive;
+    publicApp.elements.wifiView.classList.toggle('hidden', !publicApp.wifiViewActive);
 }
 
 function applySplitState() {
@@ -302,6 +325,9 @@ function onWindowKeyDown(event) {
         publicApp.splitState.right = 0.5;
         applySplitState();
         saveSplitState();
+    } else if (key === 'x') {
+        event.preventDefault();
+        toggleWifiView();
     } else if (key === 'r') {
         if (activeElement && activeElement.classList && activeElement.classList.contains('splitter')) {
             event.preventDefault();

@@ -375,6 +375,57 @@ body {
   color: var(--muted);
 }
 
+.wifi-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wifi-overlay.hidden {
+  display: none;
+}
+
+.wifi-overlay-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(12px, 2vh, 28px);
+}
+
+.wifi-overlay-content img {
+  width: min(60vw, 60vh);
+  height: min(60vw, 60vh);
+  background: white;
+  border-radius: clamp(10px, 1vw, 18px);
+  padding: clamp(6px, 0.55vw, 10px);
+  object-fit: contain;
+}
+
+.wifi-title {
+  margin: 0;
+  font-size: clamp(1.2rem, 2.5vw, 2rem);
+  color: var(--text);
+  text-align: center;
+  font-weight: 600;
+}
+
+.wifi-ssid,
+.wifi-password {
+  margin: 0;
+  font-size: clamp(1rem, 2vw, 1.6rem);
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.wifi-ssid strong,
+.wifi-password strong {
+  color: var(--text);
+}
+
 @media (max-width: 720px), (max-height: 520px) {
   .dashboard-shell {
     padding: 6px;
